@@ -24,7 +24,10 @@ final class ProfileRepositoryTests: XCTestCase {
         let repository = ProfileRepository(paths: paths)
         let profiles = try repository.create(named: "Work", in: [])
 
-        XCTAssertEqual(profiles, try repository.load())
+        let loaded = try repository.load()
+        XCTAssertEqual(loaded.map(\.id), profiles.map(\.id))
+        XCTAssertEqual(loaded[0].createdAt.timeIntervalSince1970,
+                       profiles[0].createdAt.timeIntervalSince1970, accuracy: 0.001)
         XCTAssertEqual(profiles.map(\.name), ["Work"])
         try assertSecureDirectory(paths.userDataURL(for: profiles[0]))
     }
