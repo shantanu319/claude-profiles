@@ -119,7 +119,14 @@ private struct HelpLimitationsView: View {
                 title: "What can remain shared",
                 symbol: "exclamationmark.shield",
                 text: "Profiles are not a hard security boundary. macOS permissions, Keychain access, "
-                    + "global shortcuts, notifications, URL links, and other system integrations can remain shared."
+                    + "global shortcuts, notifications, URL links, and other system integrations can remain shared. "
+                    + "Copies also look identical in the Dock, so verify the account inside each window."
+            )
+            helpSection(
+                title: "Safe updates",
+                symbol: "arrow.triangle.2.circlepath",
+                text: "Profile copies cannot update themselves. The installed Claude app remains canonical, "
+                    + "and a new build is blocked until Claude Profiles has validated it."
             )
 
             HStack {
