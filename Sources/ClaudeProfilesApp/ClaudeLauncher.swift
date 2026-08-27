@@ -22,6 +22,8 @@ final class ClaudeLauncher {
     private let repository: ProfileRepository
     private let cloneManager: ClaudeCloneManager
     private var cachedInstallation: ClaudeInstallation?
+    private var sourceWasVerified = false
+    private var verifiedSourceVersion: String?
 
     init(
         locator: ClaudeInstallationLocator = ClaudeInstallationLocator(),
@@ -32,8 +34,8 @@ final class ClaudeLauncher {
         self.cloneManager = ClaudeCloneManager(paths: repository.paths)
     }
 
-    func preflight() throws {
-        _ = try installation()
+    func preflight() async throws {
+        _ = try await verifiedInstallation()
     }
 
     func runningProcesses(for profiles: [ClaudeProfile]) throws -> [ClaudeProcess] {
@@ -61,7 +63,6 @@ final class ClaudeLauncher {
     }
 
     func open(_ profile: ClaudeProfile?, among profiles: [ClaudeProfile]) async throws {
-        let source = try installation()
         if let running = process(for: profile, in: try runningProcesses(for: profiles)) {
             guard let application = NSRunningApplication(processIdentifier: running.pid),
                   application.activate(options: [.activateAllWindows]) else {
@@ -69,6 +70,7 @@ final class ClaudeLauncher {
             }
             return
         }
+        let verifiedSource = try await verifiedInstallation()
 
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
@@ -80,9 +82,9 @@ final class ClaudeLauncher {
             try repository.ensureDirectories(for: profile)
             let dataPath = repository.paths.userDataURL(for: profile).path
             configuration.arguments = ["--user-data-dir=\(dataPath)"]
-            target = try await cloneManager.prepare(profile: profile, from: source)
+            target = try await cloneManager.prepare(profile: profile, from: verifiedSource)
         } else {
-            target = source
+            target = verifiedSource
         }
 
         try await withCheckedThrowingContinuation {
@@ -117,6 +119,20 @@ final class ClaudeLauncher {
         if let cachedInstallation { return cachedInstallation }
         let value = try locator.locate()
         cachedInstallation = value
+        return value
+    }
+
+    private func verifiedInstallation() async throws -> ClaudeInstallation {
+        let value = try installation()
+        let version = ClaudeBundleMetadata.version(at: value.appURL)
+        if !sourceWasVerified || verifiedSourceVersion != version {
+            let appURL = value.appURL
+            try await Task.detached(priority: .userInitiated) {
+                try ClaudeSignatureVerifier().verify(appURL)
+            }.value
+            sourceWasVerified = true
+            verifiedSourceVersion = version
+        }
         return value
     }
 }

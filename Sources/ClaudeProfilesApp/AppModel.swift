@@ -27,7 +27,7 @@ final class AppModel: ObservableObject {
 
     func addAndOpen(named name: String) async -> Bool {
         do {
-            try launcher.preflight()
+            try await launcher.preflight()
             let updated = try repository.create(named: name, in: profiles)
             let profile = updated[updated.endIndex - 1]
             profiles = updated
