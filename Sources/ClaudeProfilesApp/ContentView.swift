@@ -27,8 +27,8 @@ struct ContentView: View {
             }
             .listStyle(.inset)
             Divider()
-            Text("Profiles separate Claude Desktop storage, not your macOS identity. "
-                + "Verify the account before starting agents.")
+            Text("Before a profile's first sign-in, quit every other Claude app. "
+                + "OAuth links are global on macOS.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -64,8 +64,9 @@ struct ContentView: View {
             if model.isRunning(profile) {
                 Text("Quit this Claude app with ⌘Q before deleting it; closing its windows is not enough.")
             } else {
-                Text("The profile's cloned Claude app and all its local Desktop data will move to Trash. "
-                    + "Your Claude account will not be deleted or signed out on other devices.")
+                Text("The cloned app, Desktop data, Claude Code history, plugins, and any legacy "
+                    + "session-index backup will move to Trash. Your Claude account will not be "
+                    + "deleted or signed out on other devices.")
             }
         }
         .onReceive(statusTimer) { _ in model.refreshStatus() }
@@ -76,7 +77,7 @@ struct ContentView: View {
             name: profile?.name ?? "Existing Claude",
             detail: profile == nil
                 ? "Installed Claude app and existing Desktop storage"
-                : "Managed Claude app • separate Desktop storage",
+                : "Managed Claude app • separate Desktop & Code storage",
             isStandard: profile == nil,
             isRunning: model.isRunning(profile),
             isLaunching: model.isLaunching(profile),
@@ -110,14 +111,15 @@ private struct HelpLimitationsView: View {
             helpSection(
                 title: "How profiles work",
                 symbol: "square.stack.3d.up",
-                text: "Each profile gets a managed copy of Claude and its own Claude Desktop storage. "
-                    + "Cookies and credentials are not copied between profiles."
+                text: "Each profile gets a managed copy of Claude and its own Claude Desktop and "
+                    + "Claude Code storage. Cookies and credentials are not copied between profiles."
             )
             helpSection(
                 title: "First sign-in",
                 symbol: "person.badge.key",
                 text: "Quit every other Claude app with ⌘Q, then open and sign in to this profile. "
-                    + "Closing windows is not enough. Verify the account before starting an agent."
+                    + "Closing windows is not enough: macOS has one global claude:// OAuth callback, "
+                    + "so an open Claude app can receive the sign-in intended for another profile."
             )
             helpSection(
                 title: "What can remain shared",
