@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 public final class ProfileRepository {
@@ -66,7 +67,7 @@ public final class ProfileRepository {
     }
 
     public func create(named rawName: String, in profiles: [ClaudeProfile]) throws -> [ClaudeProfile] {
-        let name = try ProfileName.clean(rawName, existing: profiles)
+        let name = try ProfileName.cleanManaged(rawName, existing: profiles)
         let profile = ClaudeProfile(name: name)
         try secureDirectories(for: profile)
         do {
@@ -86,6 +87,21 @@ public final class ProfileRepository {
         if fileManager.fileExists(atPath: container.path) {
             try trash(container)
         }
+        try? save(updated)
+        return updated
+    }
+
+    public func rename(
+        _ profile: ClaudeProfile,
+        to rawName: String,
+        in profiles: [ClaudeProfile]
+    ) throws -> [ClaudeProfile] {
+        let existing = profiles.filter { $0.id != profile.id }
+        let name = try ProfileName.cleanManaged(rawName, existing: existing)
+        var renamed = profile
+        renamed.name = name
+        try saveMetadata(renamed)
+        let updated = profiles.map { $0.id == profile.id ? renamed : $0 }
         try? save(updated)
         return updated
     }
@@ -129,8 +145,28 @@ public final class ProfileRepository {
 
     private func saveMetadata(_ profile: ClaudeProfile) throws {
         let url = paths.metadataURL(for: profile)
-        try encoder.encode(profile).write(to: url, options: .atomic)
-        try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+        let stagingURL = url.deletingLastPathComponent()
+            .appending(path: ".profile-\(UUID().uuidString).json")
+        do {
+            try encoder.encode(profile).write(to: stagingURL, options: .atomic)
+            try fileManager.setAttributes(
+                [.posixPermissions: 0o600],
+                ofItemAtPath: stagingURL.path
+            )
+            let status = stagingURL.path.withCString { sourcePath in
+                url.path.withCString { destinationPath in
+                    Darwin.rename(sourcePath, destinationPath)
+                }
+            }
+            guard status == 0 else {
+                throw CocoaError(.fileWriteUnknown, userInfo: [
+                    NSUnderlyingErrorKey: POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO),
+                ])
+            }
+        } catch {
+            try? fileManager.removeItem(at: stagingURL)
+            throw error
+        }
     }
 
     private func secureDirectories(for profile: ClaudeProfile) throws {

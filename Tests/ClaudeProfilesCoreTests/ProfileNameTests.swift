@@ -32,4 +32,12 @@ final class ProfileNameTests: XCTestCase {
             XCTAssertEqual(error as? ProfileError, .invalidCharacters)
         }
     }
+
+    func testManagedProfileCannotImpersonateCanonicalClaude() {
+        XCTAssertThrowsError(try ProfileName.cleanManaged("existing claude", existing: [])) {
+            error in
+            XCTAssertEqual(error as? ProfileError, .reservedName)
+        }
+        XCTAssertNoThrow(try ProfileName.clean("Existing Claude", existing: []))
+    }
 }

@@ -17,6 +17,7 @@ public enum ProfileError: LocalizedError, Equatable {
     case nameTooLong
     case invalidCharacters
     case duplicateName
+    case reservedName
     case profileIsRunning
     case profileIsOpening
 
@@ -30,6 +31,8 @@ public enum ProfileError: LocalizedError, Equatable {
             "Profile names cannot contain control characters."
         case .duplicateName:
             "A profile with that name already exists."
+        case .reservedName:
+            "Choose a name other than “Existing Claude”."
         case .profileIsRunning:
             "Quit this Claude app with ⌘Q before deleting it; closing its window is not enough."
         case .profileIsOpening:
@@ -39,6 +42,14 @@ public enum ProfileError: LocalizedError, Equatable {
 }
 
 public enum ProfileName {
+    public static func cleanManaged(_ value: String, existing: [ClaudeProfile]) throws -> String {
+        let name = try clean(value, existing: existing)
+        guard name.localizedCaseInsensitiveCompare("Existing Claude") != .orderedSame else {
+            throw ProfileError.reservedName
+        }
+        return name
+    }
+
     public static func clean(_ value: String, existing: [ClaudeProfile]) throws -> String {
         let name = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { throw ProfileError.blankName }
