@@ -40,6 +40,17 @@ struct ProfileRow: View {
             .accessibilityLabel(isLaunching
                 ? "Opening \(name)"
                 : "\(needsRestart ? "Finish upgrading" : (isRunning ? "Show" : "Open")) \(name)")
+            if let onDelete {
+                Button(role: .destructive, action: onDelete) {
+                    Image(systemName: "trash")
+                        .frame(width: 18, height: 18)
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.red)
+                .disabled(isLaunching)
+                .help("Delete \(name)")
+                .accessibilityLabel("Delete \(name)")
+            }
             menu
         }
         .padding(.vertical, 7)
@@ -82,10 +93,6 @@ struct ProfileRow: View {
     private var menu: some View {
         Menu {
             Button("Show Profile Data in Finder", action: onReveal)
-            if let onDelete {
-                Divider()
-                Button("Delete Profile…", role: .destructive, action: onDelete)
-            }
         } label: {
             Image(systemName: "ellipsis.circle")
                 .accessibilityLabel("More actions for \(name)")

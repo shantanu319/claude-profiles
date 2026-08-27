@@ -20,6 +20,10 @@ own persistent Desktop data directory. Cookies, OAuth tokens, and credentials ar
 Profiles made by an earlier build can show **Restart needed**. Quit that Claude copy with **⌘Q**,
 then choose **Fix**. This migrates its launcher without removing its account data.
 
+To delete a managed profile, quit its Claude app with **⌘Q**, choose the red trash button on
+that profile's row, and confirm **Move Profile to Trash**. The cloned app and its local Desktop
+data remain recoverable in Trash; the Claude account itself is not deleted.
+
 If macOS delivers an external sign-in callback to the wrong Claude app, quit every Claude app
 with ⌘Q and restart that profile's sign-in. Email sign-in can also present a verification code
 that you enter in the initiating window.

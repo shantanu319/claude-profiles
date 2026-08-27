@@ -46,13 +46,29 @@ final class ProfileRepositoryTests: XCTestCase {
         let repository = ProfileRepository(paths: paths) { source in
             try FileManager.default.moveItem(at: source, to: destination)
         }
-        let profiles = try repository.create(named: "Personal", in: [])
+        let first = try repository.create(named: "Personal", in: [])
+        let profiles = try repository.create(named: "Work", in: first)
+        let deletedData = paths.userDataURL(for: profiles[0]).appending(path: "sentinel")
+        let deletedApp = paths.appURL(for: profiles[0]).appending(path: "Contents/sentinel")
+        let keptData = paths.userDataURL(for: profiles[1]).appending(path: "sentinel")
+        try FileManager.default.createDirectory(
+            at: deletedApp.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data("deleted data".utf8).write(to: deletedData)
+        try Data("deleted app".utf8).write(to: deletedApp)
+        try Data("kept data".utf8).write(to: keptData)
 
         let updated = try repository.delete(profiles[0], from: profiles)
 
-        XCTAssertTrue(updated.isEmpty)
-        XCTAssertTrue(try repository.load().isEmpty)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: destination.path))
+        XCTAssertEqual(updated.map(\.id), [profiles[1].id])
+        XCTAssertEqual(try repository.load().map(\.id), [profiles[1].id])
+        XCTAssertEqual(try Data(contentsOf: destination.appending(path: "User Data/sentinel")),
+                       Data("deleted data".utf8))
+        XCTAssertEqual(try Data(contentsOf: destination.appending(path: "Claude.app/Contents/sentinel")),
+                       Data("deleted app".utf8))
+        XCTAssertEqual(try Data(contentsOf: keptData), Data("kept data".utf8))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: destination.appending(path: "profile.json").path))
     }
 
     func testMissingRegistryRecoversProfileMetadata() throws {

@@ -51,17 +51,21 @@ struct ContentView: View {
             titleVisibility: .visible,
             presenting: deleteCandidate
         ) { profile in
-            Button("Move to Trash", role: .destructive) {
-                model.delete(profile)
-                deleteCandidate = nil
+            if model.isRunning(profile) {
+                Button("Done", role: .cancel) { deleteCandidate = nil }
+            } else {
+                Button("Move Profile to Trash", role: .destructive) {
+                    model.delete(profile)
+                    deleteCandidate = nil
+                }
+                Button("Cancel", role: .cancel) { deleteCandidate = nil }
             }
-            Button("Cancel", role: .cancel) { deleteCandidate = nil }
         } message: { profile in
             if model.isRunning(profile) {
                 Text("Quit this Claude app with ⌘Q before deleting it; closing its windows is not enough.")
             } else {
-                Text("The managed Claude app and its local Desktop data will move to Trash. "
-                    + "This does not sign the server account out.")
+                Text("The profile's cloned Claude app and all its local Desktop data will move to Trash. "
+                    + "Your Claude account will not be deleted or signed out on other devices.")
             }
         }
         .onReceive(statusTimer) { _ in model.refreshStatus() }
