@@ -21,9 +21,48 @@ public final class ProfileRepository {
     }
 
     public func load() throws -> [ClaudeProfile] {
-        guard fileManager.fileExists(atPath: paths.registryURL.path) else { return [] }
-        let data = try Data(contentsOf: paths.registryURL)
-        return try decoder.decode([ClaudeProfile].self, from: data)
+        let (registry, cacheWritable) = loadRegistry()
+        var registryByID: [UUID: ClaudeProfile] = [:]
+        for profile in registry {
+            registryByID[profile.id] = validated(profile, matching: profile.id)
+        }
+        guard fileManager.fileExists(atPath: paths.profilesURL.path) else {
+            if cacheWritable { try? save([]) }
+            return []
+        }
+
+        let keys: Set<URLResourceKey> = [.isDirectoryKey, .isSymbolicLinkKey, .creationDateKey]
+        let containers = try fileManager.contentsOfDirectory(
+            at: paths.profilesURL,
+            includingPropertiesForKeys: Array(keys),
+            options: [.skipsHiddenFiles]
+        )
+        var profiles: [ClaudeProfile] = []
+        for container in containers {
+            guard let identifier = UUID(uuidString: container.lastPathComponent),
+                  container.lastPathComponent == identifier.uuidString else { continue }
+            let values = try container.resourceValues(forKeys: keys)
+            guard values.isDirectory == true, values.isSymbolicLink != true else { continue }
+            let metadataURL = container.appending(path: "profile.json")
+            let metadata = decodedMetadata(at: metadataURL)
+                .flatMap { validated($0, matching: identifier) }
+            let profile = metadata
+                ?? registryByID[identifier]
+                ?? ClaudeProfile(
+                    id: identifier,
+                    name: "Recovered \(identifier.uuidString)",
+                    createdAt: values.creationDate ?? Date(timeIntervalSince1970: 0)
+                )
+            profiles.append(profile)
+            if !fileManager.fileExists(atPath: metadataURL.path) {
+                try? saveMetadata(profile)
+            }
+        }
+        profiles.sort {
+            ($0.createdAt, $0.id.uuidString) < ($1.createdAt, $1.id.uuidString)
+        }
+        if cacheWritable { try? save(profiles) }
+        return profiles
     }
 
     public func create(named rawName: String, in profiles: [ClaudeProfile]) throws -> [ClaudeProfile] {
@@ -68,6 +107,28 @@ public final class ProfileRepository {
         try data.write(to: paths.registryURL, options: .atomic)
         try fileManager.setAttributes([.posixPermissions: 0o600],
                                       ofItemAtPath: paths.registryURL.path)
+    }
+
+    private func loadRegistry() -> ([ClaudeProfile], Bool) {
+        guard fileManager.fileExists(atPath: paths.registryURL.path) else { return ([], true) }
+        guard let data = try? Data(contentsOf: paths.registryURL),
+              let profiles = try? decoder.decode([ClaudeProfile].self, from: data) else {
+            return ([], false)
+        }
+        return (profiles, true)
+    }
+
+    private func decodedMetadata(at url: URL) -> ClaudeProfile? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return try? decoder.decode(ClaudeProfile.self, from: data)
+    }
+
+    private func validated(_ profile: ClaudeProfile, matching id: UUID) -> ClaudeProfile? {
+        guard profile.id == id,
+              (try? ProfileName.clean(profile.name, existing: [])) == profile.name else {
+            return nil
+        }
+        return profile
     }
 
     private func saveMetadata(_ profile: ClaudeProfile) throws {
