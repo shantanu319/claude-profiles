@@ -24,6 +24,10 @@ final class ClaudeRuntimeIntegrationTests: XCTestCase {
 
         defer {
             cloneApplication?.terminate()
+            let clonePath = paths.appExecutableURL(for: profile).path
+            try? ClaudeProcessScanner(executablePath: clonePath).snapshot().forEach {
+                NSRunningApplication(processIdentifier: $0.pid)?.terminate()
+            }
             try? FileManager.default.removeItem(at: root)
         }
 
@@ -32,12 +36,12 @@ final class ClaudeRuntimeIntegrationTests: XCTestCase {
         let process = try await waitForProcess(at: paths.appExecutableURL(for: profile).path)
         cloneApplication = try XCTUnwrap(NSRunningApplication(processIdentifier: process.pid))
         XCTAssertEqual(
-            cloneApplication?.executableURL?.standardizedFileURL,
-            paths.appExecutableURL(for: profile).standardizedFileURL
+            try canonicalPath(of: XCTUnwrap(cloneApplication?.executableURL)),
+            try canonicalPath(of: paths.appExecutableURL(for: profile))
         )
         XCTAssertEqual(
-            URL(fileURLWithPath: try XCTUnwrap(process.userDataPath)).standardizedFileURL,
-            paths.userDataURL(for: profile).standardizedFileURL
+            try canonicalPath(of: URL(fileURLWithPath: XCTUnwrap(process.userDataPath))),
+            try canonicalPath(of: paths.userDataURL(for: profile))
         )
 
         let verifier = ClaudeSignatureVerifier()
@@ -54,8 +58,12 @@ final class ClaudeRuntimeIntegrationTests: XCTestCase {
         let manager = ClaudeCloneManager(paths: paths)
         _ = try await manager.prepare(profile: profile, from: source)
         XCTAssertEqual(firstInode, try inode(of: paths.appURL(for: profile)))
-        let tamperURL = paths.appURL(for: profile).appending(path: "Contents/Resources/tamper")
-        try Data("tamper".utf8).write(to: tamperURL)
+        let displacedURL = paths.containerURL(for: profile).appending(path: "Displaced.app")
+        try FileManager.default.moveItem(at: paths.appURL(for: profile), to: displacedURL)
+        try FileManager.default.createDirectory(
+            at: paths.appURL(for: profile),
+            withIntermediateDirectories: false
+        )
         _ = try await manager.prepare(profile: profile, from: source)
         XCTAssertNotEqual(firstInode, try inode(of: paths.appURL(for: profile)))
         XCTAssertEqual(
@@ -73,5 +81,9 @@ final class ClaudeRuntimeIntegrationTests: XCTestCase {
     private func inode(of url: URL) throws -> NSNumber {
         let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
         return try XCTUnwrap(attributes[.systemFileNumber] as? NSNumber)
+    }
+
+    private func canonicalPath(of url: URL) throws -> String {
+        try XCTUnwrap(url.resourceValues(forKeys: [.canonicalPathKey]).canonicalPath)
     }
 }
