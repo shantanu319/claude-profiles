@@ -2,10 +2,12 @@ import Foundation
 
 public struct ClaudeProcess: Equatable, Sendable {
     public let pid: pid_t
+    public let executablePath: String
     public let userDataPath: String?
 
-    public init(pid: pid_t, userDataPath: String?) {
+    public init(pid: pid_t, executablePath: String, userDataPath: String?) {
         self.pid = pid
+        self.executablePath = executablePath
         self.userDataPath = userDataPath
     }
 }
@@ -19,10 +21,14 @@ public enum ProcessScanError: LocalizedError {
 }
 
 public struct ClaudeProcessScanner: Sendable {
-    public let executablePath: String
+    public let executablePaths: Set<String>
 
     public init(executablePath: String = "/Applications/Claude.app/Contents/MacOS/Claude") {
-        self.executablePath = executablePath
+        self.executablePaths = [executablePath]
+    }
+
+    public init(executablePaths: Set<String>) {
+        self.executablePaths = executablePaths
     }
 
     public func snapshot() throws -> [ClaudeProcess] {
@@ -37,19 +43,29 @@ public struct ClaudeProcessScanner: Sendable {
         task.waitUntilExit()
         guard task.terminationStatus == 0 else { throw ProcessScanError.commandFailed }
         let output = String(decoding: data, as: UTF8.self)
-        return Self.parse(output, executablePath: executablePath)
+        return Self.parse(output, executablePaths: executablePaths)
     }
 
     public static func parse(_ output: String, executablePath: String) -> [ClaudeProcess] {
+        parse(output, executablePaths: [executablePath])
+    }
+
+    public static func parse(_ output: String, executablePaths: Set<String>) -> [ClaudeProcess] {
         output.split(separator: "\n").compactMap { rawLine in
             let line = rawLine.drop(while: { $0.isWhitespace })
             guard let split = line.firstIndex(where: { $0.isWhitespace }) else { return nil }
             guard let pid = pid_t(line[..<split]) else { return nil }
             let command = line[split...].drop(while: { $0.isWhitespace })
-            guard command == executablePath || command.hasPrefix(executablePath + " ") else {
+            guard let executablePath = executablePaths.first(where: {
+                command == $0 || command.hasPrefix($0 + " ")
+            }) else {
                 return nil
             }
-            return ClaudeProcess(pid: pid, userDataPath: userDataPath(in: command))
+            return ClaudeProcess(
+                pid: pid,
+                executablePath: executablePath,
+                userDataPath: userDataPath(in: command)
+            )
         }
     }
 
