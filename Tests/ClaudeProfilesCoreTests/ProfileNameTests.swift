@@ -26,4 +26,10 @@ final class ProfileNameTests: XCTestCase {
             XCTAssertEqual(error as? ProfileError, .nameTooLong)
         }
     }
+
+    func testRejectsAnEmbeddedNewline() {
+        XCTAssertThrowsError(try ProfileName.clean("Work\nAccount", existing: [])) { error in
+            XCTAssertEqual(error as? ProfileError, .invalidCharacters)
+        }
+    }
 }
