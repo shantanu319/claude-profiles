@@ -18,6 +18,7 @@ public enum ProfileError: LocalizedError, Equatable {
     case invalidCharacters
     case duplicateName
     case profileIsRunning
+    case profileIsOpening
 
     public var errorDescription: String? {
         switch self {
@@ -30,7 +31,9 @@ public enum ProfileError: LocalizedError, Equatable {
         case .duplicateName:
             "A profile with that name already exists."
         case .profileIsRunning:
-            "Quit this Claude profile before deleting it."
+            "Quit this Claude app with ⌘Q before deleting it; closing its window is not enough."
+        case .profileIsOpening:
+            "Wait for this Claude app to finish opening before deleting it."
         }
     }
 }

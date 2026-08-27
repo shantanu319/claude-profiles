@@ -27,11 +27,13 @@ final class AppModel: ObservableObject {
 
     func addAndOpen(named name: String) async -> Bool {
         do {
+            try launcher.preflight()
             let updated = try repository.create(named: name, in: profiles)
             let profile = updated[updated.endIndex - 1]
             profiles = updated
-            notice = .setup(name: profile.name)
-            await open(profile)
+            if await open(profile) {
+                notice = .setup(name: profile.name)
+            }
             return true
         } catch {
             notice = .error(error)
@@ -39,21 +41,25 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func open(_ profile: ClaudeProfile?) async {
+    @discardableResult
+    func open(_ profile: ClaudeProfile?) async -> Bool {
         let key = launchKey(for: profile)
-        guard launchingKeys.insert(key).inserted else { return }
+        guard launchingKeys.insert(key).inserted else { return false }
         defer { launchingKeys.remove(key) }
         do {
-            try await launcher.open(profile)
+            try await launcher.open(profile, among: profiles)
             refreshStatus()
+            return true
         } catch {
             notice = .error(error)
+            return false
         }
     }
 
     func delete(_ profile: ClaudeProfile) {
         do {
-            let processes = try launcher.runningProcesses()
+            guard !isLaunching(profile) else { throw ProfileError.profileIsOpening }
+            let processes = try launcher.runningProcesses(for: profiles)
             guard launcher.process(for: profile, in: processes) == nil else {
                 throw ProfileError.profileIsRunning
             }
@@ -69,7 +75,7 @@ final class AppModel: ObservableObject {
     }
 
     func refreshStatus() {
-        guard let processes = try? launcher.runningProcesses() else {
+        guard let processes = try? launcher.runningProcesses(for: profiles) else {
             runningProfileIDs = []
             standardIsRunning = false
             return
