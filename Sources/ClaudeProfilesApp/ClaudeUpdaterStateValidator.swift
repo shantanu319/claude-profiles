@@ -3,11 +3,7 @@ import Foundation
 
 struct ClaudeUpdaterStateValidator {
     static func isSafe(_ data: Data, homeURL: URL, managedRootURL: URL) -> Bool {
-        guard let values = try? PropertyListSerialization.propertyList(
-            from: data,
-            format: nil
-        ) as? [String: Any],
-        let targetValue = values["targetBundleURL"] as? String,
+        guard let targetValue = dictionary(in: data)?["targetBundleURL"] as? String,
         let targetURL = URL(string: targetValue), targetURL.isFileURL else {
             return false
         }
@@ -22,5 +18,13 @@ struct ClaudeUpdaterStateValidator {
             homeURL.appending(path: "Applications/Claude.app"),
         ].map(CanonicalFilePath.resolve)
         return allowed.contains(targetPath)
+    }
+
+    private static func dictionary(in data: Data) -> [String: Any]? {
+        if let value = try? PropertyListSerialization.propertyList(from: data, format: nil)
+            as? [String: Any] {
+            return value
+        }
+        return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
     }
 }
