@@ -75,7 +75,9 @@ final class ClaudeLauncher {
             if let cachedPath = cachedInstallation?.executableURL.path {
                 knownStandardPaths.insert(cachedPath)
             }
-            guard knownStandardPaths.contains(process.executablePath) else {
+            let normalizedPaths = Set(knownStandardPaths.compactMap(Self.normalized))
+            guard let executablePath = Self.normalized(process.executablePath),
+                  normalizedPaths.contains(executablePath) else {
                 return false
             }
             guard let dataPath = process.userDataPath else { return true }
@@ -176,11 +178,7 @@ final class ClaudeLauncher {
     }
 
     nonisolated private static func normalized(_ path: String?) -> String? {
-        path.map {
-            let url = URL(fileURLWithPath: $0)
-            return (try? url.resourceValues(forKeys: [.canonicalPathKey]).canonicalPath)
-                ?? url.standardizedFileURL.path
-        }
+        path.map(CanonicalFilePath.resolve)
     }
 
     private func installation() throws -> ClaudeInstallation {

@@ -85,7 +85,8 @@ actor ClaudeUpdaterPolicy {
         guard let data = try? Data(contentsOf: stateURL),
               ClaudeUpdaterStateValidator.isSafe(
                 data,
-                homeURL: fileManager.homeDirectoryForCurrentUser
+                homeURL: fileManager.homeDirectoryForCurrentUser,
+                managedRootURL: paths.rootURL
               ) else {
             throw ClaudeUpdaterPolicyError.unsafeUpdaterState
         }

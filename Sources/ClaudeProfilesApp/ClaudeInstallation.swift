@@ -27,7 +27,7 @@ struct ClaudeInstallationLocator {
     private let managedRootPath: String
 
     init(managedRootURL: URL = ProfilePaths().rootURL) {
-        managedRootPath = managedRootURL.resolvingSymlinksInPath().standardizedFileURL.path
+        managedRootPath = CanonicalFilePath.resolve(managedRootURL)
     }
 
     func locate() throws -> ClaudeInstallation {
@@ -51,7 +51,7 @@ struct ClaudeInstallationLocator {
     }
 
     private func isClaudeBundle(_ url: URL) -> Bool {
-        let path = url.resolvingSymlinksInPath().standardizedFileURL.path
+        let path = CanonicalFilePath.resolve(url)
         guard path != managedRootPath, !path.hasPrefix(managedRootPath + "/") else {
             return false
         }

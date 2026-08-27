@@ -1,7 +1,8 @@
+import ClaudeProfilesCore
 import Foundation
 
 struct ClaudeUpdaterStateValidator {
-    static func isSafe(_ data: Data, homeURL: URL) -> Bool {
+    static func isSafe(_ data: Data, homeURL: URL, managedRootURL: URL) -> Bool {
         guard let values = try? PropertyListSerialization.propertyList(
             from: data,
             format: nil
@@ -10,15 +11,16 @@ struct ClaudeUpdaterStateValidator {
         let targetURL = URL(string: targetValue), targetURL.isFileURL else {
             return false
         }
+        guard let targetPath = CanonicalFilePath.existing(targetURL) else { return false }
+        let managedRootPath = CanonicalFilePath.resolve(managedRootURL)
+        guard targetPath != managedRootPath,
+              !targetPath.hasPrefix(managedRootPath + "/") else {
+            return false
+        }
         let allowed = [
             URL(fileURLWithPath: "/Applications/Claude.app"),
             homeURL.appending(path: "Applications/Claude.app"),
-        ].map(canonicalPath)
-        return allowed.contains(canonicalPath(targetURL))
-    }
-
-    private static func canonicalPath(_ url: URL) -> String {
-        (try? url.resourceValues(forKeys: [.canonicalPathKey]).canonicalPath)
-            ?? url.standardizedFileURL.path
+        ].map(CanonicalFilePath.resolve)
+        return allowed.contains(targetPath)
     }
 }
