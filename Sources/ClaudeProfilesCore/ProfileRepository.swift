@@ -70,14 +70,14 @@ public final class ProfileRepository {
 
     private var encoder: JSONEncoder {
         let value = JSONEncoder()
-        value.dateEncodingStrategy = .iso8601
+        value.dateEncodingStrategy = .secondsSince1970
         value.outputFormatting = [.prettyPrinted, .sortedKeys]
         return value
     }
 
     private var decoder: JSONDecoder {
         let value = JSONDecoder()
-        value.dateDecodingStrategy = .iso8601
+        value.dateDecodingStrategy = .secondsSince1970
         return value
     }
 }
