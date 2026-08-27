@@ -91,6 +91,16 @@ final class ProfileRepositoryTests: XCTestCase {
         ))
     }
 
+    func testRegistryRepairsCorruptMetadata() throws {
+        let repository = ProfileRepository(paths: paths)
+        let profile = try XCTUnwrap(repository.create(named: "Legacy", in: []).first)
+        try Data("damaged".utf8).write(to: paths.metadataURL(for: profile))
+
+        XCTAssertEqual(try repository.load().map(\.name), ["Legacy"])
+        try FileManager.default.removeItem(at: paths.registryURL)
+        XCTAssertEqual(try repository.load().map(\.name), ["Legacy"])
+    }
+
     func testUnknownUUIDContainerGetsAStableRecoveredProfile() throws {
         let identifier = UUID()
         let profile = ClaudeProfile(id: identifier, name: "placeholder")

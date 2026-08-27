@@ -54,7 +54,7 @@ public final class ProfileRepository {
                     createdAt: values.creationDate ?? Date(timeIntervalSince1970: 0)
                 )
             profiles.append(profile)
-            if !fileManager.fileExists(atPath: metadataURL.path) {
+            if metadata == nil {
                 try? saveMetadata(profile)
             }
         }
