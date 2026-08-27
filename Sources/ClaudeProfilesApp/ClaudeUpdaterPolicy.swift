@@ -83,19 +83,10 @@ actor ClaudeUpdaterPolicy {
         )
         guard fileManager.fileExists(atPath: stateURL.path) else { return }
         guard let data = try? Data(contentsOf: stateURL),
-              let values = try? PropertyListSerialization.propertyList(
-                from: data,
-                format: nil
-              ) as? [String: Any],
-              let targetValue = values["targetBundleURL"] as? String,
-              let targetURL = URL(string: targetValue) else {
-            throw ClaudeUpdaterPolicyError.unsafeUpdaterState
-        }
-        let homeApp = fileManager.homeDirectoryForCurrentUser
-            .appending(path: "Applications/Claude.app")
-        let allowed = [URL(fileURLWithPath: "/Applications/Claude.app"), homeApp]
-            .map(Self.canonicalPath)
-        guard allowed.contains(Self.canonicalPath(targetURL)) else {
+              ClaudeUpdaterStateValidator.isSafe(
+                data,
+                homeURL: fileManager.homeDirectoryForCurrentUser
+              ) else {
             throw ClaudeUpdaterPolicyError.unsafeUpdaterState
         }
     }
@@ -107,8 +98,4 @@ actor ClaudeUpdaterPolicy {
         return (value as? Bool) == true
     }
 
-    nonisolated private static func canonicalPath(_ url: URL) -> String {
-        (try? url.resourceValues(forKeys: [.canonicalPathKey]).canonicalPath)
-            ?? url.standardizedFileURL.path
-    }
 }
