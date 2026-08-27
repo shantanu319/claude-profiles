@@ -25,6 +25,7 @@ final class ClaudeLauncher {
     private let locator: ClaudeInstallationLocator
     private let repository: ProfileRepository
     private let cloneManager: ClaudeCloneManager
+    private let updaterPolicy: ClaudeUpdaterPolicy
     private var cachedInstallation: ClaudeInstallation?
     private var sourceWasVerified = false
     private var verifiedSourceVersion: String?
@@ -36,6 +37,7 @@ final class ClaudeLauncher {
         self.locator = locator
         self.repository = repository
         self.cloneManager = ClaudeCloneManager(paths: repository.paths)
+        self.updaterPolicy = ClaudeUpdaterPolicy(paths: repository.paths)
     }
 
     func preflight() async throws {
@@ -63,8 +65,8 @@ final class ClaudeLauncher {
             if let profile {
                 let clonePath = repository.paths.appExecutableURL(for: profile).path
                 let dataPath = repository.paths.userDataURL(for: profile).path
-                return normalized(process.executablePath) == normalized(clonePath)
-                    || normalized(process.userDataPath) == normalized(dataPath)
+                return Self.normalized(process.executablePath) == Self.normalized(clonePath)
+                    || Self.normalized(process.userDataPath) == Self.normalized(dataPath)
             }
             var knownStandardPaths: Set<String> = [
                 "/Applications/Claude.app/Contents/MacOS/Claude",
@@ -78,12 +80,13 @@ final class ClaudeLauncher {
                 return false
             }
             guard let dataPath = process.userDataPath else { return true }
-            return normalized(dataPath) == normalized(repository.paths.standardUserDataURL.path)
+            return Self.normalized(dataPath)
+                == Self.normalized(repository.paths.standardUserDataURL.path)
         }
     }
 
     func isLegacy(_ process: ClaudeProcess, for profile: ClaudeProfile) -> Bool {
-        normalized(process.executablePath) != normalized(
+        Self.normalized(process.executablePath) != Self.normalized(
             repository.paths.appExecutableURL(for: profile).path
         )
     }
@@ -92,6 +95,12 @@ final class ClaudeLauncher {
         if let running = process(for: profile, in: try runningProcesses(for: profiles)) {
             if let profile, isLegacy(running, for: profile) {
                 throw ClaudeLauncherError.legacyInstanceRunning
+            }
+            if let profile {
+                let clone = ClaudeBundleMetadata.installation(
+                    at: repository.paths.appURL(for: profile)
+                )
+                try await updaterPolicy.validateRunning(profile, clone: clone)
             }
             guard let application = NSRunningApplication(processIdentifier: running.pid),
                   application.activate(options: [.activateAllWindows]) else {
@@ -111,6 +120,8 @@ final class ClaudeLauncher {
             try repository.ensureDirectories(for: profile)
             let dataPath = repository.paths.userDataURL(for: profile).path
             configuration.arguments = ["--user-data-dir=\(dataPath)"]
+            configuration.environment = ["DISABLE_UPDATE_CHECK": "1"]
+            try await updaterPolicy.apply(to: profile, source: verifiedSource)
             target = try await cloneManager.prepare(profile: profile, from: verifiedSource)
         } else {
             target = verifiedSource
@@ -124,8 +135,8 @@ final class ClaudeLauncher {
             ) { application, error in
                 if let error {
                     continuation.resume(throwing: error)
-                } else if application?.executableURL?.standardizedFileURL
-                    != target.executableURL.standardizedFileURL {
+                } else if Self.normalized(application?.executableURL?.path)
+                    != Self.normalized(target.executableURL.path) {
                     continuation.resume(throwing: ClaudeLauncherError.substitutedApplication)
                 } else {
                     continuation.resume()
@@ -140,8 +151,12 @@ final class ClaudeLauncher {
         NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
-    private func normalized(_ path: String?) -> String? {
-        path.map { URL(fileURLWithPath: $0).standardizedFileURL.path }
+    nonisolated private static func normalized(_ path: String?) -> String? {
+        path.map {
+            let url = URL(fileURLWithPath: $0)
+            return (try? url.resourceValues(forKeys: [.canonicalPathKey]).canonicalPath)
+                ?? url.standardizedFileURL.path
+        }
     }
 
     private func installation() throws -> ClaudeInstallation {
