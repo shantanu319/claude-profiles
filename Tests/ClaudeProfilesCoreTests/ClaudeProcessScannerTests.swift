@@ -14,8 +14,12 @@ final class ClaudeProcessScannerTests: XCTestCase {
         XCTAssertEqual(
             ClaudeProcessScanner.parse(output, executablePath: executable),
             [
-                ClaudeProcess(pid: 101, userDataPath: nil),
-                ClaudeProcess(pid: 202, userDataPath: "/Users/A/Claude Profiles/One"),
+                ClaudeProcess(pid: 101, executablePath: executable, userDataPath: nil),
+                ClaudeProcess(
+                    pid: 202,
+                    executablePath: executable,
+                    userDataPath: "/Users/A/Claude Profiles/One"
+                ),
             ]
         )
     }
@@ -25,5 +29,15 @@ final class ClaudeProcessScannerTests: XCTestCase {
         let output = "301 /Applications/Claude.app/Contents/MacOS/Claude-old --user-data-dir=/tmp"
 
         XCTAssertTrue(ClaudeProcessScanner.parse(output, executablePath: executable).isEmpty)
+    }
+
+    func testMatchesCanonicalAndClonedExecutables() {
+        let original = "/Applications/Claude.app/Contents/MacOS/Claude"
+        let clone = "/Users/A/Profiles/ABC/Claude.app/Contents/MacOS/Claude"
+        let output = "401 \(clone) --user-data-dir=/Users/A/Profiles/ABC/User Data"
+
+        let processes = ClaudeProcessScanner.parse(output, executablePaths: [original, clone])
+
+        XCTAssertEqual(processes.first?.executablePath, clone)
     }
 }
