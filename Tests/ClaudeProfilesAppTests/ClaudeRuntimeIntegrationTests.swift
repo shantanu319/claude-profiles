@@ -102,6 +102,6 @@ final class ClaudeRuntimeIntegrationTests: XCTestCase {
     }
 
     private func canonicalPath(of url: URL) throws -> String {
-        try XCTUnwrap(url.resourceValues(forKeys: [.canonicalPathKey]).canonicalPath)
+        try XCTUnwrap(CanonicalFilePath.existing(url))
     }
 }
