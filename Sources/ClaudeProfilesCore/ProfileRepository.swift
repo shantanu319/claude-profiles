@@ -71,27 +71,18 @@ public final class ProfileRepository {
         try secureDirectories(for: profile)
         try saveMetadata(profile)
         let updated = profiles + [profile]
-        do {
-            try save(updated)
-        } catch {
-            try? fileManager.removeItem(at: paths.containerURL(for: profile))
-            throw error
-        }
+        try? save(updated)
         return updated
     }
 
     public func delete(_ profile: ClaudeProfile, from profiles: [ClaudeProfile]) throws -> [ClaudeProfile] {
         let updated = profiles.filter { $0.id != profile.id }
-        try save(updated)
         let container = paths.containerURL(for: profile)
-        guard fileManager.fileExists(atPath: container.path) else { return updated }
-        do {
+        if fileManager.fileExists(atPath: container.path) {
             try trash(container)
-            return updated
-        } catch {
-            try? save(profiles)
-            throw error
         }
+        try? save(updated)
+        return updated
     }
 
     public func ensureDirectories(for profile: ClaudeProfile) throws {
