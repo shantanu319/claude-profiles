@@ -31,6 +31,10 @@ that profile's row, and confirm **Move Profile to Trash**. The cloned app, Deskt
 Claude Code history/plugins, and any legacy-index backup remain recoverable in Trash; the Claude
 account itself is not deleted.
 
+To rename a managed profile, use its **…** menu and choose **Rename Profile**. Renaming changes
+only the launcher label; it preserves the profile's account, app clone, Desktop data, and Claude
+Code history.
+
 If macOS delivers an external sign-in callback to the wrong Claude app, quit every Claude app
 with ⌘Q and restart that profile's sign-in. Email sign-in can also present a verification code
 that you enter in the initiating window.
