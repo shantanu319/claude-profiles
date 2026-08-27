@@ -16,6 +16,25 @@ struct ClaudeSignatureVerifier {
         """
 
     func verify(_ appURL: URL) throws {
+        _ = try validatedCode(at: appURL)
+    }
+
+    func identity(of appURL: URL) throws -> Data {
+        let code = try validatedCode(at: appURL)
+        var information: CFDictionary?
+        guard SecCodeCopySigningInformation(
+            code,
+            SecCSFlags(rawValue: kSecCSSigningInformation),
+            &information
+        ) == errSecSuccess,
+        let dictionary = information as? [String: Any],
+        let identity = dictionary[kSecCodeInfoUnique as String] as? Data else {
+            throw ClaudeSignatureError.invalidSignature
+        }
+        return identity
+    }
+
+    private func validatedCode(at appURL: URL) throws -> SecStaticCode {
         var code: SecStaticCode?
         guard SecStaticCodeCreateWithPath(appURL as CFURL, [], &code) == errSecSuccess,
               let code else {
@@ -31,9 +50,14 @@ struct ClaudeSignatureVerifier {
             throw ClaudeSignatureError.invalidSignature
         }
 
-        let flags = SecCSFlags(rawValue: kSecCSCheckAllArchitectures | kSecCSStrictValidate)
+        let flags = SecCSFlags(
+            rawValue: kSecCSCheckAllArchitectures
+                | kSecCSCheckNestedCode
+                | kSecCSStrictValidate
+        )
         guard SecStaticCodeCheckValidity(code, flags, requirement) == errSecSuccess else {
             throw ClaudeSignatureError.invalidSignature
         }
+        return code
     }
 }
