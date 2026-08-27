@@ -49,6 +49,12 @@ final class ClaudeRuntimeIntegrationTests: XCTestCase {
         let launcher = ClaudeLauncher(locator: locator, repository: repository)
         try await launcher.open(profile, among: [profile])
         var process = try await waitForProcess(at: paths.appExecutableURL(for: profile).path)
+        XCTAssertTrue(process.isolatesClaudeCode)
+        XCTAssertTrue(
+            try commandAndEnvironment(of: process.pid).contains(
+                "CLAUDE_CONFIG_DIR=\(paths.claudeConfigURL(for: profile).path)"
+            )
+        )
         cloneApplication = try XCTUnwrap(NSRunningApplication(processIdentifier: process.pid))
         XCTAssertEqual(
             try canonicalPath(of: XCTUnwrap(cloneApplication?.executableURL)),
@@ -118,5 +124,18 @@ final class ClaudeRuntimeIntegrationTests: XCTestCase {
 
     private func canonicalPath(of url: URL) throws -> String {
         try XCTUnwrap(CanonicalFilePath.existing(url))
+    }
+
+    private func commandAndEnvironment(of pid: pid_t) throws -> String {
+        let process = Process()
+        let output = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/bin/ps")
+        process.arguments = ["-p", String(pid), "-Eww", "-o", "command="]
+        process.standardOutput = output
+        try process.run()
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        XCTAssertEqual(process.terminationStatus, 0)
+        return String(decoding: data, as: UTF8.self)
     }
 }

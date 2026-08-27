@@ -25,6 +25,7 @@ final class ClaudeLauncher {
     private let locator: ClaudeInstallationLocator
     private let repository: ProfileRepository
     private let cloneManager: ClaudeCloneManager
+    private let legacyStateQuarantine: LegacyStateQuarantine
     private let updaterPolicy: ClaudeUpdaterPolicy
     private var cachedInstallation: ClaudeInstallation?
     private var sourceWasVerified = false
@@ -37,6 +38,7 @@ final class ClaudeLauncher {
         self.locator = locator
         self.repository = repository
         self.cloneManager = ClaudeCloneManager(paths: repository.paths)
+        self.legacyStateQuarantine = LegacyStateQuarantine(paths: repository.paths)
         self.updaterPolicy = ClaudeUpdaterPolicy(paths: repository.paths)
     }
 
@@ -91,6 +93,7 @@ final class ClaudeLauncher {
             != Self.normalized(repository.paths.appExecutableURL(for: profile).path)
             || Self.normalized(process.userDataPath)
             != Self.normalized(repository.paths.userDataURL(for: profile).path)
+            || !process.isolatesClaudeCode
     }
 
     func open(_ profile: ClaudeProfile?, among profiles: [ClaudeProfile]) async throws {
@@ -110,8 +113,11 @@ final class ClaudeLauncher {
         if let profile {
             try repository.ensureDirectories(for: profile)
             let dataPath = repository.paths.userDataURL(for: profile).path
-            configuration.arguments = ["--user-data-dir=\(dataPath)"]
-            configuration.environment = ["DISABLE_UPDATE_CHECK": "1"]
+            configuration.arguments = [
+                "--user-data-dir=\(dataPath)",
+                ClaudeProcessScanner.isolationArgument,
+            ]
+            configuration.environment = managedEnvironment(for: profile)
             let identity = try await updaterPolicy.apply(to: profile, source: verifiedSource)
             target = try await cloneManager.prepare(
                 profile: profile,
@@ -123,6 +129,9 @@ final class ClaudeLauncher {
         }
         if try await activateIfRunning(profile, among: profiles, appearedDuringLaunch: true) {
             return
+        }
+        if let profile {
+            try legacyStateQuarantine.runOnce(for: profile)
         }
 
         try await withCheckedThrowingContinuation {
@@ -172,9 +181,16 @@ final class ClaudeLauncher {
     }
 
     func reveal(_ profile: ClaudeProfile?) {
-        let url = profile.map(repository.paths.userDataURL)
+        let url = profile.map(repository.paths.containerURL)
             ?? repository.paths.standardUserDataURL
         NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
+    func managedEnvironment(for profile: ClaudeProfile) -> [String: String] {
+        [
+            "CLAUDE_CONFIG_DIR": repository.paths.claudeConfigURL(for: profile).path,
+            "DISABLE_UPDATE_CHECK": "1",
+        ]
     }
 
     nonisolated private static func normalized(_ path: String?) -> String? {
