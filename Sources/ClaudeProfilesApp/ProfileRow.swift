@@ -6,6 +6,7 @@ struct ProfileRow: View {
     let isStandard: Bool
     let isRunning: Bool
     let isLaunching: Bool
+    let needsRestart: Bool
     let onOpen: () -> Void
     let onReveal: () -> Void
     let onDelete: (() -> Void)?
@@ -30,7 +31,7 @@ struct ProfileRow: View {
                         .frame(width: 42)
                         .accessibilityHidden(true)
                 } else {
-                    Text(isRunning ? "Show" : "Open")
+                    Text(needsRestart ? "Fix" : (isRunning ? "Show" : "Open"))
                         .frame(minWidth: 42)
                 }
             }
@@ -38,7 +39,7 @@ struct ProfileRow: View {
             .disabled(isLaunching)
             .accessibilityLabel(isLaunching
                 ? "Opening \(name)"
-                : "\(isRunning ? "Show" : "Open") \(name)")
+                : "\(needsRestart ? "Finish upgrading" : (isRunning ? "Show" : "Open")) \(name)")
             menu
         }
         .padding(.vertical, 7)
@@ -64,15 +65,18 @@ struct ProfileRow: View {
     private var status: some View {
         HStack(spacing: 5) {
             Circle()
-                .fill(isRunning ? Color.green : Color.secondary.opacity(0.45))
+                .fill(needsRestart ? Color.orange
+                    : (isRunning ? Color.green : Color.secondary.opacity(0.45)))
                 .frame(width: 7, height: 7)
-            Text(isRunning ? "Claude open" : "Not open")
+            Text(needsRestart ? "Restart needed" : (isRunning ? "Claude open" : "Not open"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .frame(width: 88, alignment: .leading)
+        .frame(width: 104, alignment: .leading)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(isRunning ? "Claude open" : "Claude not open")
+        .accessibilityLabel(needsRestart
+            ? "Restart needed to finish upgrading"
+            : (isRunning ? "Claude open" : "Claude not open"))
     }
 
     private var menu: some View {

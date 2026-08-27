@@ -76,6 +76,7 @@ struct ContentView: View {
             isStandard: profile == nil,
             isRunning: model.isRunning(profile),
             isLaunching: model.isLaunching(profile),
+            needsRestart: model.needsRestart(profile),
             onOpen: { Task { await model.open(profile) } },
             onReveal: { model.reveal(profile) },
             onDelete: profile.map { value in { deleteCandidate = value } }

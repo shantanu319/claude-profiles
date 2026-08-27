@@ -5,6 +5,7 @@ import Foundation
 final class AppModel: ObservableObject {
     @Published private(set) var profiles: [ClaudeProfile] = []
     @Published private(set) var runningProfileIDs: Set<UUID> = []
+    @Published private(set) var legacyProfileIDs: Set<UUID> = []
     @Published private(set) var standardIsRunning = false
     @Published private(set) var launchingKeys: Set<String> = []
     @Published private(set) var registryAvailable = true
@@ -77,11 +78,16 @@ final class AppModel: ObservableObject {
     func refreshStatus() {
         guard let processes = try? launcher.runningProcesses(for: profiles) else {
             runningProfileIDs = []
+            legacyProfileIDs = []
             standardIsRunning = false
             return
         }
-        runningProfileIDs = Set(profiles.compactMap { profile in
-            launcher.process(for: profile, in: processes) == nil ? nil : profile.id
+        let matched = profiles.compactMap { profile -> (ClaudeProfile, ClaudeProcess)? in
+            launcher.process(for: profile, in: processes).map { (profile, $0) }
+        }
+        runningProfileIDs = Set(matched.map { $0.0.id })
+        legacyProfileIDs = Set(matched.compactMap { profile, process in
+            launcher.isLegacy(process, for: profile) ? profile.id : nil
         })
         standardIsRunning = launcher.process(for: nil, in: processes) != nil
     }
@@ -92,6 +98,10 @@ final class AppModel: ObservableObject {
 
     func isLaunching(_ profile: ClaudeProfile?) -> Bool {
         launchingKeys.contains(launchKey(for: profile))
+    }
+
+    func needsRestart(_ profile: ClaudeProfile?) -> Bool {
+        profile.map { legacyProfileIDs.contains($0.id) } ?? false
     }
 
     private func launchKey(for profile: ClaudeProfile?) -> String {
