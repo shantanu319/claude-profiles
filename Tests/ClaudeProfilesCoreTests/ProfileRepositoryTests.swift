@@ -91,6 +91,36 @@ final class ProfileRepositoryTests: XCTestCase {
         ))
     }
 
+    func testUnknownUUIDContainerGetsAStableRecoveredProfile() throws {
+        let identifier = UUID()
+        let profile = ClaudeProfile(id: identifier, name: "placeholder")
+        try FileManager.default.createDirectory(
+            at: paths.userDataURL(for: profile),
+            withIntermediateDirectories: true
+        )
+        let repository = ProfileRepository(paths: paths)
+
+        let loaded = try repository.load()
+
+        XCTAssertEqual(loaded.map(\.id), [identifier])
+        XCTAssertEqual(loaded.map(\.name), ["Recovered \(identifier.uuidString)"])
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: paths.metadataURL(for: loaded[0]).path
+        ))
+    }
+
+    func testStaleRegistryEntryWithoutAContainerIsIgnored() throws {
+        let repository = ProfileRepository(paths: paths)
+        let profile = try XCTUnwrap(repository.create(named: "Work", in: []).first)
+        let destination = paths.rootURL.appending(path: "already-trashed")
+        try FileManager.default.moveItem(
+            at: paths.containerURL(for: profile),
+            to: destination
+        )
+
+        XCTAssertTrue(try repository.load().isEmpty)
+    }
+
     func testFailedRegistryWriteDoesNotHideTheNewProfile() throws {
         try FileManager.default.createDirectory(
             at: paths.registryURL,
