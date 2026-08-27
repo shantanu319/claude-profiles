@@ -5,6 +5,7 @@ enum ClaudeUpdaterPolicyError: LocalizedError {
     case invalidConfiguration
     case managedPolicyConflict
     case restartRequired
+    case unsafeUpdaterState
 
     var errorDescription: String? {
         switch self {
@@ -19,6 +20,9 @@ enum ClaudeUpdaterPolicyError: LocalizedError {
         case .restartRequired:
             "This Claude copy needs one restart to apply update protection. Quit it with "
                 + "⌘Q, then open the profile again. Its account data will be preserved."
+        case .unsafeUpdaterState:
+            "Claude's updater is still targeting a profile copy. Quit every Claude app, open "
+                + "Existing Claude once, then retry this profile."
         }
     }
 }

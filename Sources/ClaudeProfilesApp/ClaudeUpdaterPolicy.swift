@@ -18,25 +18,32 @@ actor ClaudeUpdaterPolicy {
         self.fileManager = fileManager
     }
 
-    func apply(to profile: ClaudeProfile, source: ClaudeInstallation) throws {
+    func apply(to profile: ClaudeProfile, source: ClaudeInstallation) throws -> Data {
         let identity = try requireCompatibility(with: source)
         try requireCompatibleManagedPolicy()
+        try requireSafeUpdaterTarget()
         let store = ClaudePolicyStore(paths: paths, fileManager: fileManager)
         try store.establish(for: profile, identity: identity)
         try store.clearRestartRequirement(for: profile)
+        return identity
     }
 
     func validateRunning(_ profile: ClaudeProfile, clone: ClaudeInstallation) throws {
         let identity = try requireCompatibility(with: clone)
         try requireCompatibleManagedPolicy()
+        try requireSafeUpdaterTarget()
         let store = ClaudePolicyStore(paths: paths, fileManager: fileManager)
         guard !store.requiresRestart(for: profile) else {
             throw ClaudeUpdaterPolicyError.restartRequired
         }
         guard try !store.isEstablished(for: profile, identity: identity) else { return }
         try store.markRestartRequired(for: profile)
-        try store.establish(for: profile, identity: identity)
         throw ClaudeUpdaterPolicyError.restartRequired
+    }
+
+    func markRestartRequired(_ profile: ClaudeProfile) throws {
+        try ClaudePolicyStore(paths: paths, fileManager: fileManager)
+            .markRestartRequired(for: profile)
     }
 
     private func requireCompatibility(with source: ClaudeInstallation) throws -> Data {
@@ -70,10 +77,38 @@ actor ClaudeUpdaterPolicy {
         }
     }
 
+    private func requireSafeUpdaterTarget() throws {
+        let stateURL = fileManager.homeDirectoryForCurrentUser.appending(
+            path: "Library/Caches/com.anthropic.claudefordesktop.ShipIt/ShipItState.plist"
+        )
+        guard fileManager.fileExists(atPath: stateURL.path) else { return }
+        guard let data = try? Data(contentsOf: stateURL),
+              let values = try? PropertyListSerialization.propertyList(
+                from: data,
+                format: nil
+              ) as? [String: Any],
+              let targetValue = values["targetBundleURL"] as? String,
+              let targetURL = URL(string: targetValue) else {
+            throw ClaudeUpdaterPolicyError.unsafeUpdaterState
+        }
+        let homeApp = fileManager.homeDirectoryForCurrentUser
+            .appending(path: "Applications/Claude.app")
+        let allowed = [URL(fileURLWithPath: "/Applications/Claude.app"), homeApp]
+            .map(Self.canonicalPath)
+        guard allowed.contains(Self.canonicalPath(targetURL)) else {
+            throw ClaudeUpdaterPolicyError.unsafeUpdaterState
+        }
+    }
+
     nonisolated private static func isTrue(_ value: Any?) -> Bool {
         guard let value, CFGetTypeID(value as CFTypeRef) == CFBooleanGetTypeID() else {
             return false
         }
         return (value as? Bool) == true
+    }
+
+    nonisolated private static func canonicalPath(_ url: URL) -> String {
+        (try? url.resourceValues(forKeys: [.canonicalPathKey]).canonicalPath)
+            ?? url.standardizedFileURL.path
     }
 }
