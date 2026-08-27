@@ -29,7 +29,8 @@ actor ClaudeCloneManager {
 
     func prepare(
         profile: ClaudeProfile,
-        from source: ClaudeInstallation
+        from source: ClaudeInstallation,
+        expectedIdentity: Data? = nil
     ) async throws -> ClaudeInstallation {
         let containerURL = paths.containerURL(for: profile)
         try fileManager.createDirectory(
@@ -44,6 +45,9 @@ actor ClaudeCloneManager {
         try cleanupStagingBundles(in: containerURL)
 
         let sourceIdentity = try signatureVerifier.identity(of: source.appURL)
+        if let expectedIdentity, sourceIdentity != expectedIdentity {
+            throw ClaudeCloneError.invalidBundle
+        }
         let targetURL = paths.appURL(for: profile)
         if isFresh(targetURL, matching: sourceIdentity) {
             return ClaudeBundleMetadata.installation(at: targetURL)
