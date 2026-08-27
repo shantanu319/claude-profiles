@@ -35,6 +35,7 @@ final class AppModel: ObservableObject {
             if await open(profile) {
                 notice = .setup(name: profile.name)
             }
+            // The profile exists; close the sheet so a failed launch can be retried from its row.
             return true
         } catch {
             notice = .error(error)

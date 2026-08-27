@@ -44,9 +44,14 @@ struct AddProfileView: View {
             .background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
 
             HStack {
+                if isSubmitting {
+                    ProgressView()
+                        .controlSize(.small)
+                }
                 Spacer()
                 Button("Cancel") { dismiss() }
                     .keyboardShortcut(.cancelAction)
+                    .disabled(isSubmitting)
                 Button("Create & Open") { create() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmitting)
@@ -55,6 +60,7 @@ struct AddProfileView: View {
         .padding(24)
         .frame(width: 470)
         .onAppear { nameIsFocused = true }
+        .interactiveDismissDisabled(isSubmitting)
     }
 
     private func create() {
