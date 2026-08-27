@@ -1,0 +1,55 @@
+import XCTest
+@testable import ClaudeProfilesCore
+
+final class ProfileRepositoryTests: XCTestCase {
+    private var temporaryURL: URL!
+    private var paths: ProfilePaths!
+
+    override func setUp() {
+        super.setUp()
+        temporaryURL = FileManager.default.temporaryDirectory
+            .appending(path: "ClaudeProfilesTests-\(UUID().uuidString)", directoryHint: .isDirectory)
+        paths = ProfilePaths(
+            rootURL: temporaryURL.appending(path: "Store", directoryHint: .isDirectory),
+            applicationSupportURL: temporaryURL
+        )
+    }
+
+    override func tearDown() {
+        try? FileManager.default.removeItem(at: temporaryURL)
+        super.tearDown()
+    }
+
+    func testCreatePersistsSecureDirectories() throws {
+        let repository = ProfileRepository(paths: paths)
+        let profiles = try repository.create(named: "Work", in: [])
+
+        XCTAssertEqual(profiles, try repository.load())
+        XCTAssertEqual(profiles.map(\.name), ["Work"])
+        try assertSecureDirectory(paths.userDataURL(for: profiles[0]))
+        try assertSecureDirectory(paths.claudeCodeURL(for: profiles[0]))
+    }
+
+    func testDeleteMovesContainerAndUpdatesRegistry() throws {
+        let destination = paths.rootURL.appending(path: "trashed", directoryHint: .isDirectory)
+        let repository = ProfileRepository(paths: paths) { source in
+            try FileManager.default.moveItem(at: source, to: destination)
+        }
+        let profiles = try repository.create(named: "Personal", in: [])
+
+        let updated = try repository.delete(profiles[0], from: profiles)
+
+        XCTAssertTrue(updated.isEmpty)
+        XCTAssertTrue(try repository.load().isEmpty)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: destination.path))
+    }
+
+    private func assertSecureDirectory(_ url: URL) throws {
+        var isDirectory: ObjCBool = false
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory))
+        XCTAssertTrue(isDirectory.boolValue)
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        let permissions = try XCTUnwrap(attributes[.posixPermissions] as? NSNumber)
+        XCTAssertEqual(permissions.intValue & 0o777, 0o700)
+    }
+}
