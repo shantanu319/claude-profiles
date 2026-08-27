@@ -1,0 +1,94 @@
+import ClaudeProfilesCore
+import Foundation
+
+@MainActor
+final class AppModel: ObservableObject {
+    @Published private(set) var profiles: [ClaudeProfile] = []
+    @Published private(set) var runningProfileIDs: Set<UUID> = []
+    @Published private(set) var standardIsRunning = false
+    @Published private(set) var launchingKeys: Set<String> = []
+    @Published private(set) var registryAvailable = true
+    @Published var notice: AppNotice?
+
+    private let repository: ProfileRepository
+    private let launcher: ClaudeLauncher
+
+    init(repository: ProfileRepository = ProfileRepository()) {
+        self.repository = repository
+        self.launcher = ClaudeLauncher(repository: repository)
+        do {
+            profiles = try repository.load()
+        } catch {
+            registryAvailable = false
+            notice = .error(error)
+        }
+        refreshStatus()
+    }
+
+    func addAndOpen(named name: String) async -> Bool {
+        do {
+            let updated = try repository.create(named: name, in: profiles)
+            let profile = updated[updated.endIndex - 1]
+            profiles = updated
+            notice = .setup(name: profile.name)
+            await open(profile)
+            return true
+        } catch {
+            notice = .error(error)
+            return false
+        }
+    }
+
+    func open(_ profile: ClaudeProfile?) async {
+        let key = launchKey(for: profile)
+        guard launchingKeys.insert(key).inserted else { return }
+        defer { launchingKeys.remove(key) }
+        do {
+            try await launcher.open(profile)
+            refreshStatus()
+        } catch {
+            notice = .error(error)
+        }
+    }
+
+    func delete(_ profile: ClaudeProfile) {
+        do {
+            let processes = try launcher.runningProcesses()
+            guard launcher.process(for: profile, in: processes) == nil else {
+                throw ProfileError.profileIsRunning
+            }
+            profiles = try repository.delete(profile, from: profiles)
+            refreshStatus()
+        } catch {
+            notice = .error(error)
+        }
+    }
+
+    func reveal(_ profile: ClaudeProfile?) {
+        launcher.reveal(profile)
+    }
+
+    func refreshStatus() {
+        guard let processes = try? launcher.runningProcesses() else {
+            runningProfileIDs = []
+            standardIsRunning = false
+            return
+        }
+        runningProfileIDs = Set(profiles.compactMap { profile in
+            launcher.process(for: profile, in: processes) == nil ? nil : profile.id
+        })
+        standardIsRunning = launcher.process(for: nil, in: processes) != nil
+    }
+
+    func isRunning(_ profile: ClaudeProfile?) -> Bool {
+        profile.map { runningProfileIDs.contains($0.id) } ?? standardIsRunning
+    }
+
+    func isLaunching(_ profile: ClaudeProfile?) -> Bool {
+        launchingKeys.contains(launchKey(for: profile))
+    }
+
+    private func launchKey(for profile: ClaudeProfile?) -> String {
+        profile?.id.uuidString ?? "standard"
+    }
+}
