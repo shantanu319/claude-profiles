@@ -15,9 +15,9 @@ struct AppNotice: Identifiable {
     static func setup(name: String) -> AppNotice {
         AppNotice(
             title: "Set up \(name)",
-            message: "Sign in inside the new Claude window, then verify the account name before "
-                + "starting an agent. If a sign-in link reaches the wrong window, quit the other "
-                + "Claude windows during this one-time setup."
+            message: "Sign in inside this profile's Claude window, then verify the account before "
+                + "starting an agent. If a sign-in link reaches another Claude app, quit every "
+                + "Claude app with ⌘Q and restart this one-time sign-in."
         )
     }
 }

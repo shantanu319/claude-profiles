@@ -28,6 +28,7 @@ struct ProfileRow: View {
                     ProgressView()
                         .controlSize(.small)
                         .frame(width: 42)
+                        .accessibilityHidden(true)
                 } else {
                     Text(isRunning ? "Show" : "Open")
                         .frame(minWidth: 42)
@@ -35,6 +36,9 @@ struct ProfileRow: View {
             }
             .buttonStyle(.bordered)
             .disabled(isLaunching)
+            .accessibilityLabel(isLaunching
+                ? "Opening \(name)"
+                : "\(isRunning ? "Show" : "Open") \(name)")
             menu
         }
         .padding(.vertical, 7)
@@ -54,6 +58,7 @@ struct ProfileRow: View {
         }
         .frame(width: 42, height: 42)
         .foregroundStyle(Color.accentColor)
+        .accessibilityHidden(true)
     }
 
     private var status: some View {
@@ -61,11 +66,13 @@ struct ProfileRow: View {
             Circle()
                 .fill(isRunning ? Color.green : Color.secondary.opacity(0.45))
                 .frame(width: 7, height: 7)
-            Text(isRunning ? "Running" : "Closed")
+            Text(isRunning ? "Claude open" : "Not open")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .frame(width: 68, alignment: .leading)
+        .frame(width: 88, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(isRunning ? "Claude open" : "Claude not open")
     }
 
     private var menu: some View {
@@ -74,7 +81,6 @@ struct ProfileRow: View {
             if let onDelete {
                 Divider()
                 Button("Delete Profile…", role: .destructive, action: onDelete)
-                    .disabled(isRunning)
             }
         } label: {
             Image(systemName: "ellipsis.circle")

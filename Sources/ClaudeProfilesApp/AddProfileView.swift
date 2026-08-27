@@ -12,8 +12,8 @@ struct AddProfileView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("New Claude Profile")
                     .font(.title2.weight(.semibold))
-                Text("This creates an empty local profile. You will sign in normally in Claude; "
-                    + "no cookies or credentials are copied.")
+                Text("This creates a managed Claude app with separate Claude Desktop storage. "
+                    + "You will sign in normally; no cookies or credentials are copied.")
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -24,7 +24,24 @@ struct AddProfileView: View {
                 TextField("Work, personal, client…", text: $name)
                     .textFieldStyle(.roundedBorder)
                     .focused($nameIsFocused)
+                    .accessibilityLabel("Profile name")
             }
+
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Before the first sign-in")
+                        .font(.headline)
+                    Text("Quit every other Claude app with ⌘Q; closing its windows is not enough. "
+                        + "After signing in, verify the account before starting an agent.")
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(12)
+            .background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
 
             HStack {
                 Spacer()
@@ -36,7 +53,7 @@ struct AddProfileView: View {
             }
         }
         .padding(24)
-        .frame(width: 430)
+        .frame(width: 470)
         .onAppear { nameIsFocused = true }
     }
 
