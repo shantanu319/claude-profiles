@@ -10,7 +10,10 @@ public final class ProfileRepository {
     public init(
         paths: ProfilePaths = ProfilePaths(),
         fileManager: FileManager = .default,
-        trash: @escaping TrashHandler = ProfileRepository.moveToTrash
+        trash: @escaping TrashHandler = { url in
+            var result: NSURL?
+            try FileManager.default.trashItem(at: url, resultingItemURL: &result)
+        }
     ) {
         self.paths = paths
         self.fileManager = fileManager
@@ -76,10 +79,5 @@ public final class ProfileRepository {
         let value = JSONDecoder()
         value.dateDecodingStrategy = .iso8601
         return value
-    }
-
-    private static func moveToTrash(_ url: URL) throws {
-        var result: NSURL?
-        try FileManager.default.trashItem(at: url, resultingItemURL: &result)
     }
 }
