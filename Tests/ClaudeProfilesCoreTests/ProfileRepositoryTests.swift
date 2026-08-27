@@ -73,6 +73,62 @@ final class ProfileRepositoryTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: destination.appending(path: "profile.json").path))
     }
 
+    func testRenameChangesOnlyTheProfileLabel() throws {
+        let repository = ProfileRepository(paths: paths)
+        let profiles = try repository.create(named: "Work", in: [])
+        let original = try XCTUnwrap(profiles.first)
+        let sentinel = paths.userDataURL(for: original).appending(path: "sentinel")
+        try Data("kept".utf8).write(to: sentinel)
+
+        let updated = try repository.rename(original, to: "Client", in: profiles)
+        let renamed = try XCTUnwrap(updated.first)
+
+        XCTAssertEqual(renamed.id, original.id)
+        XCTAssertEqual(renamed.createdAt, original.createdAt)
+        XCTAssertEqual(renamed.name, "Client")
+        XCTAssertEqual(paths.containerURL(for: renamed), paths.containerURL(for: original))
+        XCTAssertEqual(try Data(contentsOf: sentinel), Data("kept".utf8))
+        try assertPermissions(paths.metadataURL(for: renamed), equalTo: 0o600)
+        let loaded = try XCTUnwrap(repository.load().first)
+        XCTAssertEqual(loaded.id, renamed.id)
+        XCTAssertEqual(loaded.name, renamed.name)
+        XCTAssertEqual(loaded.createdAt.timeIntervalSince1970,
+                       renamed.createdAt.timeIntervalSince1970, accuracy: 0.001)
+    }
+
+    func testRenameValidatesAgainstOtherProfilesButNotItself() throws {
+        let repository = ProfileRepository(paths: paths)
+        let first = try repository.create(named: "Personal", in: [])
+        let profiles = try repository.create(named: "Work", in: first)
+
+        XCTAssertNoThrow(try repository.rename(first[0], to: " personal ", in: profiles))
+        XCTAssertThrowsError(try repository.rename(first[0], to: "work", in: profiles)) { error in
+            XCTAssertEqual(error as? ProfileError, .duplicateName)
+        }
+    }
+
+    func testRenameSurvivesFailedRegistryRefresh() throws {
+        let repository = ProfileRepository(paths: paths)
+        let profiles = try repository.create(named: "Work", in: [])
+        try FileManager.default.removeItem(at: paths.registryURL)
+        try FileManager.default.createDirectory(at: paths.registryURL, withIntermediateDirectories: true)
+
+        _ = try repository.rename(profiles[0], to: "Client", in: profiles)
+
+        XCTAssertEqual(try repository.load().map(\.name), ["Client"])
+    }
+
+    func testRenameStopsWhenAuthoritativeMetadataCannotBeWritten() throws {
+        let repository = ProfileRepository(paths: paths)
+        let profiles = try repository.create(named: "Work", in: [])
+        let metadataURL = paths.metadataURL(for: profiles[0])
+        try FileManager.default.removeItem(at: metadataURL)
+        try FileManager.default.createDirectory(at: metadataURL, withIntermediateDirectories: true)
+
+        XCTAssertThrowsError(try repository.rename(profiles[0], to: "Client", in: profiles))
+        XCTAssertEqual(try repository.load().map(\.name), ["Work"])
+    }
+
     func testEnsureDirectoriesAddsPrivateClaudeConfigToExistingProfile() throws {
         let profile = ClaudeProfile(name: "Existing")
         try FileManager.default.createDirectory(
