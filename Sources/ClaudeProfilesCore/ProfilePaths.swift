@@ -23,6 +23,10 @@ public struct ProfilePaths: Sendable {
         rootURL.appending(path: ".launch-\(profile.id.uuidString).lock")
     }
 
+    public var standardLaunchLockURL: URL {
+        rootURL.appending(path: ".launch-standard.lock")
+    }
+
     public func containerURL(for profile: ClaudeProfile) -> URL {
         profilesURL.appending(path: profile.id.uuidString, directoryHint: .isDirectory)
     }

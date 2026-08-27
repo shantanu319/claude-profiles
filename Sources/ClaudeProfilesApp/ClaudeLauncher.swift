@@ -92,13 +92,10 @@ final class ClaudeLauncher {
     }
 
     func open(_ profile: ClaudeProfile?, among profiles: [ClaudeProfile]) async throws {
-        let launchLock: ProfileLaunchLock?
-        if let profile {
-            launchLock = try ProfileLaunchLock(at: repository.paths.launchLockURL(for: profile))
-        } else {
-            launchLock = nil
-        }
-        defer { launchLock?.unlock() }
+        let lockURL = profile.map(repository.paths.launchLockURL)
+            ?? repository.paths.standardLaunchLockURL
+        let launchLock = try ProfileLaunchLock(at: lockURL)
+        defer { launchLock.unlock() }
         if try await activateIfRunning(profile, among: profiles) { return }
         let verifiedSource = try await verifiedInstallation()
 
