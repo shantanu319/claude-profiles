@@ -8,7 +8,6 @@ guard CommandLine.arguments.count == 2 else {
 
 let image = NSImage(size: NSSize(width: 1024, height: 1024))
 image.lockFocus()
-defer { image.unlockFocus() }
 
 let canvas = NSRect(x: 32, y: 32, width: 960, height: 960)
 let background = NSBezierPath(roundedRect: canvas, xRadius: 210, yRadius: 210)
@@ -68,6 +67,7 @@ func drawCard(_ rect: NSRect, opacity: CGFloat) {
 
 drawCard(NSRect(x: 168, y: 312, width: 540, height: 430), opacity: 0.78)
 drawCard(NSRect(x: 320, y: 210, width: 540, height: 430), opacity: 0.96)
+image.unlockFocus()
 
 guard let tiff = image.tiffRepresentation,
       let bitmap = NSBitmapImageRep(data: tiff),
