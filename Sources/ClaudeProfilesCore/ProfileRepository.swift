@@ -29,7 +29,8 @@ public final class ProfileRepository {
     public func create(named rawName: String, in profiles: [ClaudeProfile]) throws -> [ClaudeProfile] {
         let name = try ProfileName.clean(rawName, existing: profiles)
         let profile = ClaudeProfile(name: name)
-        try secureDirectory(at: paths.userDataURL(for: profile))
+        try secureDirectories(for: profile)
+        try saveMetadata(profile)
         let updated = profiles + [profile]
         do {
             try save(updated)
@@ -55,13 +56,31 @@ public final class ProfileRepository {
     }
 
     public func ensureDirectories(for profile: ClaudeProfile) throws {
-        try secureDirectory(at: paths.userDataURL(for: profile))
+        try secureDirectories(for: profile)
+        if !fileManager.fileExists(atPath: paths.metadataURL(for: profile).path) {
+            try saveMetadata(profile)
+        }
     }
 
     private func save(_ profiles: [ClaudeProfile]) throws {
         try secureDirectory(at: paths.rootURL)
         let data = try encoder.encode(profiles)
         try data.write(to: paths.registryURL, options: .atomic)
+        try fileManager.setAttributes([.posixPermissions: 0o600],
+                                      ofItemAtPath: paths.registryURL.path)
+    }
+
+    private func saveMetadata(_ profile: ClaudeProfile) throws {
+        let url = paths.metadataURL(for: profile)
+        try encoder.encode(profile).write(to: url, options: .atomic)
+        try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+    }
+
+    private func secureDirectories(for profile: ClaudeProfile) throws {
+        try secureDirectory(at: paths.rootURL)
+        try secureDirectory(at: paths.profilesURL)
+        try secureDirectory(at: paths.containerURL(for: profile))
+        try secureDirectory(at: paths.userDataURL(for: profile))
     }
 
     private func secureDirectory(at url: URL) throws {
