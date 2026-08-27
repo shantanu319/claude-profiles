@@ -39,11 +39,19 @@ final class ClaudeLauncher {
     }
 
     func runningProcesses(for profiles: [ClaudeProfile]) throws -> [ClaudeProcess] {
-        let source = try installation()
-        let clonePaths = profiles.map { repository.paths.appExecutableURL(for: $0).path }
-        return try ClaudeProcessScanner(
-            executablePaths: Set(clonePaths + [source.executableURL.path])
-        ).snapshot()
+        var executablePaths = Set(
+            profiles.map { repository.paths.appExecutableURL(for: $0).path }
+        )
+        if let source = try? installation() {
+            executablePaths.insert(source.executableURL.path)
+        } else {
+            executablePaths.insert("/Applications/Claude.app/Contents/MacOS/Claude")
+            executablePaths.insert(
+                FileManager.default.homeDirectoryForCurrentUser
+                    .appending(path: "Applications/Claude.app/Contents/MacOS/Claude").path
+            )
+        }
+        return try ClaudeProcessScanner(executablePaths: executablePaths).snapshot()
     }
 
     func process(for profile: ClaudeProfile?, in processes: [ClaudeProcess]) -> ClaudeProcess? {
@@ -54,7 +62,15 @@ final class ClaudeLauncher {
                 return normalized(process.executablePath) == normalized(clonePath)
                     || normalized(process.userDataPath) == normalized(dataPath)
             }
-            guard process.executablePath == cachedInstallation?.executableURL.path else {
+            var knownStandardPaths: Set<String> = [
+                "/Applications/Claude.app/Contents/MacOS/Claude",
+                FileManager.default.homeDirectoryForCurrentUser
+                    .appending(path: "Applications/Claude.app/Contents/MacOS/Claude").path,
+            ]
+            if let cachedPath = cachedInstallation?.executableURL.path {
+                knownStandardPaths.insert(cachedPath)
+            }
+            guard knownStandardPaths.contains(process.executablePath) else {
                 return false
             }
             guard let dataPath = process.userDataPath else { return true }
