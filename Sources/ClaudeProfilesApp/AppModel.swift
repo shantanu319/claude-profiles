@@ -60,6 +60,10 @@ final class AppModel: ObservableObject {
 
     func delete(_ profile: ClaudeProfile) {
         do {
+            let launchLock = try ProfileLaunchLock(
+                at: repository.paths.launchLockURL(for: profile)
+            )
+            defer { launchLock.unlock() }
             guard !isLaunching(profile) else { throw ProfileError.profileIsOpening }
             let processes = try launcher.runningProcesses(for: profiles)
             guard launcher.process(for: profile, in: processes) == nil else {

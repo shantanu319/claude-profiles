@@ -12,8 +12,8 @@ enum ClaudeLauncherError: LocalizedError {
         case .couldNotActivate:
             "Claude is open, but macOS could not bring its window forward."
         case .legacyInstanceRunning:
-            "This profile is still open through the old shared Claude app. Quit that Claude "
-                + "app with ⌘Q, then open the profile again. Its data will be preserved."
+            "This Claude window is not using the profile's exact app and storage pair. Quit it "
+                + "with ⌘Q, then open the profile again. Its data will be preserved."
         case .substitutedApplication:
             "macOS opened a different Claude app. Quit every Claude app and try again."
         }
@@ -48,14 +48,13 @@ final class ClaudeLauncher {
         var executablePaths = Set(
             profiles.map { repository.paths.appExecutableURL(for: $0).path }
         )
+        executablePaths.insert("/Applications/Claude.app/Contents/MacOS/Claude")
+        executablePaths.insert(
+            FileManager.default.homeDirectoryForCurrentUser
+                .appending(path: "Applications/Claude.app/Contents/MacOS/Claude").path
+        )
         if let source = try? installation() {
             executablePaths.insert(source.executableURL.path)
-        } else {
-            executablePaths.insert("/Applications/Claude.app/Contents/MacOS/Claude")
-            executablePaths.insert(
-                FileManager.default.homeDirectoryForCurrentUser
-                    .appending(path: "Applications/Claude.app/Contents/MacOS/Claude").path
-            )
         }
         return try ClaudeProcessScanner(executablePaths: executablePaths).snapshot()
     }
@@ -86,28 +85,21 @@ final class ClaudeLauncher {
     }
 
     func isLegacy(_ process: ClaudeProcess, for profile: ClaudeProfile) -> Bool {
-        Self.normalized(process.executablePath) != Self.normalized(
-            repository.paths.appExecutableURL(for: profile).path
-        )
+        Self.normalized(process.executablePath)
+            != Self.normalized(repository.paths.appExecutableURL(for: profile).path)
+            || Self.normalized(process.userDataPath)
+            != Self.normalized(repository.paths.userDataURL(for: profile).path)
     }
 
     func open(_ profile: ClaudeProfile?, among profiles: [ClaudeProfile]) async throws {
-        if let running = process(for: profile, in: try runningProcesses(for: profiles)) {
-            if let profile, isLegacy(running, for: profile) {
-                throw ClaudeLauncherError.legacyInstanceRunning
-            }
-            if let profile {
-                let clone = ClaudeBundleMetadata.installation(
-                    at: repository.paths.appURL(for: profile)
-                )
-                try await updaterPolicy.validateRunning(profile, clone: clone)
-            }
-            guard let application = NSRunningApplication(processIdentifier: running.pid),
-                  application.activate(options: [.activateAllWindows]) else {
-                throw ClaudeLauncherError.couldNotActivate
-            }
-            return
+        let launchLock: ProfileLaunchLock?
+        if let profile {
+            launchLock = try ProfileLaunchLock(at: repository.paths.launchLockURL(for: profile))
+        } else {
+            launchLock = nil
         }
+        defer { launchLock?.unlock() }
+        if try await activateIfRunning(profile, among: profiles) { return }
         let verifiedSource = try await verifiedInstallation()
 
         let configuration = NSWorkspace.OpenConfiguration()
@@ -121,10 +113,17 @@ final class ClaudeLauncher {
             let dataPath = repository.paths.userDataURL(for: profile).path
             configuration.arguments = ["--user-data-dir=\(dataPath)"]
             configuration.environment = ["DISABLE_UPDATE_CHECK": "1"]
-            try await updaterPolicy.apply(to: profile, source: verifiedSource)
-            target = try await cloneManager.prepare(profile: profile, from: verifiedSource)
+            let identity = try await updaterPolicy.apply(to: profile, source: verifiedSource)
+            target = try await cloneManager.prepare(
+                profile: profile,
+                from: verifiedSource,
+                expectedIdentity: identity
+            )
         } else {
             target = verifiedSource
+        }
+        if try await activateIfRunning(profile, among: profiles, appearedDuringLaunch: true) {
+            return
         }
 
         try await withCheckedThrowingContinuation {
@@ -143,6 +142,34 @@ final class ClaudeLauncher {
                 }
             }
         }
+    }
+
+    private func activateIfRunning(
+        _ profile: ClaudeProfile?,
+        among profiles: [ClaudeProfile],
+        appearedDuringLaunch: Bool = false
+    ) async throws -> Bool {
+        guard let running = process(for: profile, in: try runningProcesses(for: profiles)) else {
+            return false
+        }
+        if let profile {
+            if appearedDuringLaunch {
+                try await updaterPolicy.markRestartRequired(profile)
+                throw ClaudeLauncherError.legacyInstanceRunning
+            }
+            guard !isLegacy(running, for: profile) else {
+                throw ClaudeLauncherError.legacyInstanceRunning
+            }
+            let clone = ClaudeBundleMetadata.installation(
+                at: repository.paths.appURL(for: profile)
+            )
+            try await updaterPolicy.validateRunning(profile, clone: clone)
+        }
+        guard let application = NSRunningApplication(processIdentifier: running.pid),
+              application.activate(options: [.activateAllWindows]) else {
+            throw ClaudeLauncherError.couldNotActivate
+        }
+        return true
     }
 
     func reveal(_ profile: ClaudeProfile?) {
