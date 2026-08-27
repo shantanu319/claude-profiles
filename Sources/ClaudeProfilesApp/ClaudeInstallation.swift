@@ -23,6 +23,7 @@ enum ClaudeInstallationError: LocalizedError {
 @MainActor
 struct ClaudeInstallationLocator {
     private let bundleIdentifier = "com.anthropic.claudefordesktop"
+    private let signatureVerifier = ClaudeSignatureVerifier()
 
     func locate() throws -> ClaudeInstallation {
         let homeApplications = FileManager.default.homeDirectoryForCurrentUser
@@ -41,6 +42,7 @@ struct ClaudeInstallationLocator {
         guard FileManager.default.isExecutableFile(atPath: executableURL.path) else {
             throw ClaudeInstallationError.invalidBundle
         }
+        try signatureVerifier.verify(appURL)
         return ClaudeInstallation(appURL: appURL, executableURL: executableURL)
     }
 
