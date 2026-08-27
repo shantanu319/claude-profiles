@@ -55,6 +55,42 @@ final class ProfileRepositoryTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: destination.path))
     }
 
+    func testMissingRegistryRecoversProfileMetadata() throws {
+        let repository = ProfileRepository(paths: paths)
+        let profile = try XCTUnwrap(repository.create(named: "Work", in: []).first)
+        try FileManager.default.removeItem(at: paths.registryURL)
+
+        let loaded = try repository.load()
+
+        XCTAssertEqual(loaded.map(\.id), [profile.id])
+        XCTAssertEqual(loaded.map(\.name), ["Work"])
+    }
+
+    func testCorruptRegistryIsPreservedWhileProfilesRecover() throws {
+        let repository = ProfileRepository(paths: paths)
+        let profile = try XCTUnwrap(repository.create(named: "Work", in: []).first)
+        let corrupt = Data("not json".utf8)
+        try corrupt.write(to: paths.registryURL)
+
+        let loaded = try repository.load()
+
+        XCTAssertEqual(loaded.map(\.id), [profile.id])
+        XCTAssertEqual(try Data(contentsOf: paths.registryURL), corrupt)
+    }
+
+    func testLegacyRegistryBackfillsMissingMetadata() throws {
+        let repository = ProfileRepository(paths: paths)
+        let profile = try XCTUnwrap(repository.create(named: "Legacy", in: []).first)
+        try FileManager.default.removeItem(at: paths.metadataURL(for: profile))
+
+        let loaded = try repository.load()
+
+        XCTAssertEqual(loaded.map(\.id), [profile.id])
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: paths.metadataURL(for: profile).path
+        ))
+    }
+
     func testFailedRegistryWriteRemovesTheNewProfileDirectory() throws {
         try FileManager.default.createDirectory(
             at: paths.registryURL,
