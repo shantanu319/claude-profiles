@@ -27,7 +27,4 @@ public struct ProfilePaths: Sendable {
         containerURL(for: profile).appending(path: "User Data", directoryHint: .isDirectory)
     }
 
-    public func claudeCodeURL(for profile: ClaudeProfile) -> URL {
-        containerURL(for: profile).appending(path: "Claude Code", directoryHint: .isDirectory)
-    }
 }

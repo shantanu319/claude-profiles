@@ -27,7 +27,6 @@ public final class ProfileRepository {
         let name = try ProfileName.clean(rawName, existing: profiles)
         let profile = ClaudeProfile(name: name)
         try secureDirectory(at: paths.userDataURL(for: profile))
-        try secureDirectory(at: paths.claudeCodeURL(for: profile))
         let updated = profiles + [profile]
         try save(updated)
         return updated
@@ -49,7 +48,6 @@ public final class ProfileRepository {
 
     public func ensureDirectories(for profile: ClaudeProfile) throws {
         try secureDirectory(at: paths.userDataURL(for: profile))
-        try secureDirectory(at: paths.claudeCodeURL(for: profile))
     }
 
     private func save(_ profiles: [ClaudeProfile]) throws {

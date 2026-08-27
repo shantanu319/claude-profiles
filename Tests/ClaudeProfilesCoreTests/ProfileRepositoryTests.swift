@@ -27,7 +27,6 @@ final class ProfileRepositoryTests: XCTestCase {
         XCTAssertEqual(profiles, try repository.load())
         XCTAssertEqual(profiles.map(\.name), ["Work"])
         try assertSecureDirectory(paths.userDataURL(for: profiles[0]))
-        try assertSecureDirectory(paths.claudeCodeURL(for: profiles[0]))
     }
 
     func testDeleteMovesContainerAndUpdatesRegistry() throws {
