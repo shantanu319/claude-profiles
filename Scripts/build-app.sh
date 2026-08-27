@@ -13,8 +13,14 @@ cleanup() {
 }
 trap cleanup EXIT
 
-/usr/bin/swift build --package-path "$repository_dir" -c release --product ClaudeProfiles
-binary_dir="$(/usr/bin/swift build --package-path "$repository_dir" -c release --show-bin-path)"
+build_arguments=(
+    --package-path "$repository_dir"
+    -c release
+    --arch arm64
+    --arch x86_64
+)
+/usr/bin/swift build "${build_arguments[@]}" --product ClaudeProfiles
+binary_dir="$(/usr/bin/swift build "${build_arguments[@]}" --show-bin-path)"
 
 contents="$stage_app/Contents"
 /bin/mkdir -p "$contents/MacOS" "$contents/Resources"
