@@ -17,6 +17,17 @@ final class ClaudeRuntimeIntegrationTests: XCTestCase {
         let paths = ProfilePaths(rootURL: root, applicationSupportURL: root)
         let repository = ProfileRepository(paths: paths)
         let profile = try XCTUnwrap(repository.create(named: "Probe", in: []).first)
+        let updaterStateURL = FileManager.default.homeDirectoryForCurrentUser.appending(
+            path: "Library/Caches/com.anthropic.claudefordesktop.ShipIt/ShipItState.plist"
+        )
+        if FileManager.default.fileExists(atPath: updaterStateURL.path) {
+            let stateData = try Data(contentsOf: updaterStateURL)
+            XCTAssertTrue(ClaudeUpdaterStateValidator.isSafe(
+                stateData,
+                homeURL: FileManager.default.homeDirectoryForCurrentUser,
+                managedRootURL: paths.rootURL
+            ))
+        }
         let locator = ClaudeInstallationLocator(managedRootURL: root)
         let source = try locator.locate()
         let standardPIDs = try mainPIDs(at: source.executableURL.path)

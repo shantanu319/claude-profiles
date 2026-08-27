@@ -19,6 +19,13 @@ final class ClaudeUpdaterStateValidatorTests: XCTestCase {
             homeURL: home,
             managedRootURL: managedRoot
         ))
+        XCTAssertTrue(ClaudeUpdaterStateValidator.isSafe(
+            try JSONSerialization.data(withJSONObject: [
+                "targetBundleURL": homeApp.absoluteString,
+            ]),
+            homeURL: home,
+            managedRootURL: managedRoot
+        ))
         XCTAssertFalse(ClaudeUpdaterStateValidator.isSafe(
             try state(target: managedApp.absoluteString),
             homeURL: home,
