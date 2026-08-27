@@ -43,7 +43,12 @@ public struct ClaudeProcessScanner: Sendable {
         task.waitUntilExit()
         guard task.terminationStatus == 0 else { throw ProcessScanError.commandFailed }
         let output = String(decoding: data, as: UTF8.self)
-        return Self.parse(output, executablePaths: executablePaths)
+        let resolvedPaths = executablePaths.map { path in
+            let url = URL(fileURLWithPath: path)
+            return (try? url.resourceValues(forKeys: [.canonicalPathKey]).canonicalPath)
+                ?? url.standardizedFileURL.path
+        }
+        return Self.parse(output, executablePaths: executablePaths.union(resolvedPaths))
     }
 
     public static func parse(_ output: String, executablePath: String) -> [ClaudeProcess] {
