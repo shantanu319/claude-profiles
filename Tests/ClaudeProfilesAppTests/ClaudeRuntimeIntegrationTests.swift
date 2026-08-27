@@ -40,6 +40,10 @@ final class ClaudeRuntimeIntegrationTests: XCTestCase {
                 NSRunningApplication(processIdentifier: $0.pid)?.terminate()
             }
             try? FileManager.default.removeItem(at: root)
+            if FileManager.default.fileExists(atPath: root.path) {
+                var trashedURL: NSURL?
+                try? FileManager.default.trashItem(at: root, resultingItemURL: &trashedURL)
+            }
         }
 
         let launcher = ClaudeLauncher(locator: locator, repository: repository)
