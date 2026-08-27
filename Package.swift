@@ -19,5 +19,9 @@ let package = Package(
             name: "ClaudeProfilesCoreTests",
             dependencies: ["ClaudeProfilesCore"]
         ),
+        .testTarget(
+            name: "ClaudeProfilesAppTests",
+            dependencies: ["ClaudeProfilesApp", "ClaudeProfilesCore"]
+        ),
     ]
 )
