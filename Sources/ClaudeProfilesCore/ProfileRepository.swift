@@ -69,7 +69,12 @@ public final class ProfileRepository {
         let name = try ProfileName.clean(rawName, existing: profiles)
         let profile = ClaudeProfile(name: name)
         try secureDirectories(for: profile)
-        try saveMetadata(profile)
+        do {
+            try saveMetadata(profile)
+        } catch {
+            try? fileManager.removeItem(at: paths.containerURL(for: profile))
+            throw error
+        }
         let updated = profiles + [profile]
         try? save(updated)
         return updated
