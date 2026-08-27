@@ -46,6 +46,21 @@ final class ProfileRepositoryTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: destination.path))
     }
 
+    func testFailedRegistryWriteRemovesTheNewProfileDirectory() throws {
+        try FileManager.default.createDirectory(
+            at: paths.registryURL,
+            withIntermediateDirectories: true
+        )
+        let repository = ProfileRepository(paths: paths)
+
+        XCTAssertThrowsError(try repository.create(named: "Work", in: []))
+        let entries = try FileManager.default.contentsOfDirectory(
+            at: paths.profilesURL,
+            includingPropertiesForKeys: nil
+        )
+        XCTAssertTrue(entries.isEmpty)
+    }
+
     private func assertSecureDirectory(_ url: URL) throws {
         var isDirectory: ObjCBool = false
         XCTAssertTrue(FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory))
