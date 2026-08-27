@@ -91,19 +91,19 @@ final class ProfileRepositoryTests: XCTestCase {
         ))
     }
 
-    func testFailedRegistryWriteRemovesTheNewProfileDirectory() throws {
+    func testFailedRegistryWriteDoesNotHideTheNewProfile() throws {
         try FileManager.default.createDirectory(
             at: paths.registryURL,
             withIntermediateDirectories: true
         )
         let repository = ProfileRepository(paths: paths)
 
-        XCTAssertThrowsError(try repository.create(named: "Work", in: []))
-        let entries = try FileManager.default.contentsOfDirectory(
-            at: paths.profilesURL,
-            includingPropertiesForKeys: nil
-        )
-        XCTAssertTrue(entries.isEmpty)
+        let profile = try XCTUnwrap(repository.create(named: "Work", in: []).first)
+
+        XCTAssertEqual(try repository.load().map(\.id), [profile.id])
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: paths.containerURL(for: profile).path
+        ))
     }
 
     func testFailedTrashRestoresTheRegistry() throws {
