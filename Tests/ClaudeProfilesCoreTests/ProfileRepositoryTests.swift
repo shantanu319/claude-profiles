@@ -30,6 +30,15 @@ final class ProfileRepositoryTests: XCTestCase {
                        profiles[0].createdAt.timeIntervalSince1970, accuracy: 0.001)
         XCTAssertEqual(profiles.map(\.name), ["Work"])
         try assertSecureDirectory(paths.userDataURL(for: profiles[0]))
+        let metadataURL = paths.metadataURL(for: profiles[0])
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+        let metadata = try decoder.decode(
+            ClaudeProfile.self,
+            from: Data(contentsOf: metadataURL)
+        )
+        XCTAssertEqual(metadata.id, profiles[0].id)
+        try assertPermissions(metadataURL, equalTo: 0o600)
     }
 
     func testDeleteMovesContainerAndUpdatesRegistry() throws {
@@ -79,6 +88,12 @@ final class ProfileRepositoryTests: XCTestCase {
         let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
         let permissions = try XCTUnwrap(attributes[.posixPermissions] as? NSNumber)
         XCTAssertEqual(permissions.intValue & 0o777, 0o700)
+    }
+
+    private func assertPermissions(_ url: URL, equalTo expected: Int) throws {
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        let permissions = try XCTUnwrap(attributes[.posixPermissions] as? NSNumber)
+        XCTAssertEqual(permissions.intValue & 0o777, expected)
     }
 }
 
