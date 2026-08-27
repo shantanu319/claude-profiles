@@ -19,6 +19,10 @@ public struct ProfilePaths: Sendable {
         rootURL.appending(path: "Profiles", directoryHint: .isDirectory)
     }
 
+    public func launchLockURL(for profile: ClaudeProfile) -> URL {
+        rootURL.appending(path: ".launch-\(profile.id.uuidString).lock")
+    }
+
     public func containerURL(for profile: ClaudeProfile) -> URL {
         profilesURL.appending(path: profile.id.uuidString, directoryHint: .isDirectory)
     }
