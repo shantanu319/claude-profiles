@@ -15,6 +15,7 @@ public struct ClaudeProfile: Codable, Hashable, Identifiable, Sendable {
 public enum ProfileError: LocalizedError, Equatable {
     case blankName
     case nameTooLong
+    case invalidCharacters
     case duplicateName
     case profileIsRunning
 
@@ -24,6 +25,8 @@ public enum ProfileError: LocalizedError, Equatable {
             "Enter a profile name."
         case .nameTooLong:
             "Keep the profile name to 50 characters or fewer."
+        case .invalidCharacters:
+            "Profile names cannot contain control characters."
         case .duplicateName:
             "A profile with that name already exists."
         case .profileIsRunning:
@@ -37,6 +40,9 @@ public enum ProfileName {
         let name = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { throw ProfileError.blankName }
         guard name.count <= 50 else { throw ProfileError.nameTooLong }
+        guard name.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }) else {
+            throw ProfileError.invalidCharacters
+        }
         let duplicate = existing.contains { $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame }
         guard !duplicate else { throw ProfileError.duplicateName }
         return name
