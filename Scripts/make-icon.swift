@@ -15,6 +15,8 @@ NSGradient(
     starting: NSColor(calibratedRed: 0.19, green: 0.16, blue: 0.43, alpha: 1),
     ending: NSColor(calibratedRed: 0.11, green: 0.55, blue: 0.59, alpha: 1)
 )!.draw(in: background, angle: -42)
+NSGraphicsContext.saveGraphicsState()
+background.addClip()
 
 func drawGlow(center: NSPoint, radius: CGFloat) {
     NSColor.white.withAlphaComponent(0.08).setFill()
@@ -67,6 +69,7 @@ func drawCard(_ rect: NSRect, opacity: CGFloat) {
 
 drawCard(NSRect(x: 168, y: 312, width: 540, height: 430), opacity: 0.78)
 drawCard(NSRect(x: 320, y: 210, width: 540, height: 430), opacity: 0.96)
+NSGraphicsContext.restoreGraphicsState()
 image.unlockFocus()
 
 guard let tiff = image.tiffRepresentation,
