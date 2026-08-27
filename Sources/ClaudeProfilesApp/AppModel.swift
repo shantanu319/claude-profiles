@@ -120,6 +120,18 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func rename(_ profile: ClaudeProfile, to name: String) -> String? {
+        guard !isLaunching(profile) else {
+            return AppNotice.launchInProgress.message
+        }
+        do {
+            profiles = try repository.rename(profile, to: name, in: profiles)
+            return nil
+        } catch {
+            return AppNotice.error(error).message
+        }
+    }
+
     func reveal(_ profile: ClaudeProfile?) {
         launcher.reveal(profile)
     }

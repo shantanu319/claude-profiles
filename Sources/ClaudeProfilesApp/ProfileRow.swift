@@ -9,6 +9,7 @@ struct ProfileRow: View {
     let needsRestart: Bool
     let onOpen: () -> Void
     let onReveal: () -> Void
+    let onRename: (() -> Void)?
     let onDelete: (() -> Void)?
 
     var body: some View {
@@ -92,6 +93,10 @@ struct ProfileRow: View {
 
     private var menu: some View {
         Menu {
+            if let onRename {
+                Button("Rename Profile", action: onRename)
+                    .disabled(isLaunching)
+            }
             Button("Show Profile Data in Finder", action: onReveal)
         } label: {
             Image(systemName: "ellipsis.circle")

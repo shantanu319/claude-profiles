@@ -6,6 +6,7 @@ struct ContentView: View {
     @EnvironmentObject private var model: AppModel
     @State private var showAddProfile = false
     @State private var showHelp = false
+    @State private var renameCandidate: ClaudeProfile?
     @State private var deleteCandidate: ClaudeProfile?
     private let statusTimer = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
 
@@ -41,6 +42,11 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showHelp) {
             HelpLimitationsView()
+        }
+        .sheet(item: $renameCandidate) { profile in
+            RenameProfileView(profile: profile) { name in
+                model.rename(profile, to: name)
+            }
         }
         .alert(item: $model.notice) { notice in
             Alert(title: Text(notice.title), message: Text(notice.message))
@@ -84,6 +90,7 @@ struct ContentView: View {
             needsRestart: model.needsRestart(profile),
             onOpen: { Task { await model.open(profile) } },
             onReveal: { model.reveal(profile) },
+            onRename: profile.map { value in { renameCandidate = value } },
             onDelete: profile.map { value in { deleteCandidate = value } }
         )
     }
@@ -93,6 +100,50 @@ struct ContentView: View {
             get: { deleteCandidate != nil },
             set: { if !$0 { deleteCandidate = nil } }
         )
+    }
+}
+
+private struct RenameProfileView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var name: String
+    @State private var errorMessage: String?
+    @FocusState private var nameIsFocused: Bool
+    let onRename: (String) -> String?
+
+    init(profile: ClaudeProfile, onRename: @escaping (String) -> String?) {
+        self.onRename = onRename
+        _name = State(initialValue: profile.name)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Rename Claude Profile")
+                .font(.title2.weight(.semibold))
+            TextField("Profile name", text: $name)
+                .textFieldStyle(.roundedBorder)
+                .focused($nameIsFocused)
+                .accessibilityLabel("Profile name")
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Rename") {
+                    errorMessage = onRename(name)
+                    if errorMessage == nil { dismiss() }
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(24)
+        .frame(width: 420)
+        .onAppear { nameIsFocused = true }
     }
 }
 
