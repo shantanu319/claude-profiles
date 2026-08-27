@@ -62,6 +62,36 @@ final class ClaudePolicyStoreTests: XCTestCase {
         XCTAssertEqual(config["disableAutoUpdates"] as? Bool, true)
     }
 
+    func testEstablishmentRequiresReceiptAndAnEnabledPolicy() throws {
+        let identity = Data([1, 2, 3])
+        let store = ClaudePolicyStore(paths: paths, fileManager: .default)
+
+        XCTAssertFalse(try store.isEstablished(for: profile, identity: identity))
+        try store.establish(for: profile, identity: identity)
+        XCTAssertTrue(try store.isEstablished(for: profile, identity: identity))
+        XCTAssertFalse(try store.isEstablished(for: profile, identity: Data([9])))
+
+        let meta = try dictionary(at: policyLibraryURL.appending(path: "_meta.json"))
+        let identifier = try XCTUnwrap(meta["appliedId"] as? String)
+        try write(["disableAutoUpdates": false],
+                  to: policyLibraryURL.appending(path: "\(identifier).json"))
+        XCTAssertFalse(try store.isEstablished(for: profile, identity: identity))
+    }
+
+    func testRestartRequirementPersistsUntilCleared() throws {
+        let store = ClaudePolicyStore(paths: paths, fileManager: .default)
+        try FileManager.default.createDirectory(
+            at: paths.containerURL(for: profile),
+            withIntermediateDirectories: true
+        )
+
+        XCTAssertFalse(store.requiresRestart(for: profile))
+        try store.markRestartRequired(for: profile)
+        XCTAssertTrue(store.requiresRestart(for: profile))
+        try store.clearRestartRequirement(for: profile)
+        XCTAssertFalse(store.requiresRestart(for: profile))
+    }
+
     private var policyLibraryURL: URL {
         URL(fileURLWithPath: paths.userDataURL(for: profile).path + "-3p")
             .appending(path: "configLibrary")
