@@ -31,7 +31,12 @@ public final class ProfileRepository {
         let profile = ClaudeProfile(name: name)
         try secureDirectory(at: paths.userDataURL(for: profile))
         let updated = profiles + [profile]
-        try save(updated)
+        do {
+            try save(updated)
+        } catch {
+            try? fileManager.removeItem(at: paths.containerURL(for: profile))
+            throw error
+        }
         return updated
     }
 
