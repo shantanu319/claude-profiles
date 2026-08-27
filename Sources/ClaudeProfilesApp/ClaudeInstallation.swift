@@ -1,4 +1,5 @@
 import AppKit
+import ClaudeProfilesCore
 import Foundation
 
 struct ClaudeInstallation: Sendable {
@@ -24,6 +25,11 @@ enum ClaudeInstallationError: LocalizedError {
 struct ClaudeInstallationLocator {
     private let bundleIdentifier = "com.anthropic.claudefordesktop"
     private let signatureVerifier = ClaudeSignatureVerifier()
+    private let managedRootPath: String
+
+    init(managedRootURL: URL = ProfilePaths().rootURL) {
+        managedRootPath = managedRootURL.resolvingSymlinksInPath().standardizedFileURL.path
+    }
 
     func locate() throws -> ClaudeInstallation {
         let homeApplications = FileManager.default.homeDirectoryForCurrentUser
@@ -47,6 +53,10 @@ struct ClaudeInstallationLocator {
     }
 
     private func isClaudeBundle(_ url: URL) -> Bool {
-        Bundle(url: url)?.bundleIdentifier == bundleIdentifier
+        let path = url.resolvingSymlinksInPath().standardizedFileURL.path
+        guard path != managedRootPath, !path.hasPrefix(managedRootPath + "/") else {
+            return false
+        }
+        return Bundle(url: url)?.bundleIdentifier == bundleIdentifier
     }
 }
