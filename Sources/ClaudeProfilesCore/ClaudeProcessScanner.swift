@@ -4,11 +4,18 @@ public struct ClaudeProcess: Equatable, Sendable {
     public let pid: pid_t
     public let executablePath: String
     public let userDataPath: String?
+    public let isolatesClaudeCode: Bool
 
-    public init(pid: pid_t, executablePath: String, userDataPath: String?) {
+    public init(
+        pid: pid_t,
+        executablePath: String,
+        userDataPath: String?,
+        isolatesClaudeCode: Bool = false
+    ) {
         self.pid = pid
         self.executablePath = executablePath
         self.userDataPath = userDataPath
+        self.isolatesClaudeCode = isolatesClaudeCode
     }
 }
 
@@ -21,6 +28,7 @@ public enum ProcessScanError: LocalizedError {
 }
 
 public struct ClaudeProcessScanner: Sendable {
+    public static let isolationArgument = "--claude-profiles-code-isolation=v1"
     public let executablePaths: Set<String>
 
     public init(executablePath: String = "/Applications/Claude.app/Contents/MacOS/Claude") {
@@ -67,7 +75,8 @@ public struct ClaudeProcessScanner: Sendable {
             return ClaudeProcess(
                 pid: pid,
                 executablePath: executablePath,
-                userDataPath: userDataPath(in: command)
+                userDataPath: userDataPath(in: command),
+                isolatesClaudeCode: command.contains(isolationArgument)
             )
         }
     }

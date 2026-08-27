@@ -6,7 +6,7 @@ final class ClaudeProcessScannerTests: XCTestCase {
         let executable = "/Applications/Claude.app/Contents/MacOS/Claude"
         let output = """
           101 /Applications/Claude.app/Contents/MacOS/Claude
-          202 /Applications/Claude.app/Contents/MacOS/Claude --user-data-dir=/Users/A/Claude Profiles/One --foo=bar
+          202 /Applications/Claude.app/Contents/MacOS/Claude --user-data-dir=/Users/A/Claude Profiles/One --claude-profiles-code-isolation=v1
           203 /Applications/Claude.app/Contents/Frameworks/Claude Helper.app/Claude Helper --user-data-dir=/tmp
           204 /bin/zsh -c /Applications/Claude.app/Contents/MacOS/Claude
         """
@@ -18,7 +18,8 @@ final class ClaudeProcessScannerTests: XCTestCase {
                 ClaudeProcess(
                     pid: 202,
                     executablePath: executable,
-                    userDataPath: "/Users/A/Claude Profiles/One"
+                    userDataPath: "/Users/A/Claude Profiles/One",
+                    isolatesClaudeCode: true
                 ),
             ]
         )
