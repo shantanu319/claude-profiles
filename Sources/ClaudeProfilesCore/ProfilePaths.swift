@@ -35,6 +35,10 @@ public struct ProfilePaths: Sendable {
         containerURL(for: profile).appending(path: "User Data", directoryHint: .isDirectory)
     }
 
+    public func claudeConfigURL(for profile: ClaudeProfile) -> URL {
+        containerURL(for: profile).appending(path: "Claude Config", directoryHint: .isDirectory)
+    }
+
     public func metadataURL(for profile: ClaudeProfile) -> URL {
         containerURL(for: profile).appending(path: "profile.json")
     }

@@ -30,6 +30,8 @@ final class ProfileRepositoryTests: XCTestCase {
                        profiles[0].createdAt.timeIntervalSince1970, accuracy: 0.001)
         XCTAssertEqual(profiles.map(\.name), ["Work"])
         try assertSecureDirectory(paths.userDataURL(for: profiles[0]))
+        try assertSecureDirectory(paths.claudeConfigURL(for: profiles[0]))
+        XCTAssertTrue(paths.claudeConfigURL(for: profiles[0]).path.hasPrefix("/"))
         let metadataURL = paths.metadataURL(for: profiles[0])
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .secondsSince1970
@@ -69,6 +71,19 @@ final class ProfileRepositoryTests: XCTestCase {
                        Data("deleted app".utf8))
         XCTAssertEqual(try Data(contentsOf: keptData), Data("kept data".utf8))
         XCTAssertTrue(FileManager.default.fileExists(atPath: destination.appending(path: "profile.json").path))
+    }
+
+    func testEnsureDirectoriesAddsPrivateClaudeConfigToExistingProfile() throws {
+        let profile = ClaudeProfile(name: "Existing")
+        try FileManager.default.createDirectory(
+            at: paths.userDataURL(for: profile),
+            withIntermediateDirectories: true
+        )
+        let repository = ProfileRepository(paths: paths)
+
+        try repository.ensureDirectories(for: profile)
+
+        try assertSecureDirectory(paths.claudeConfigURL(for: profile))
     }
 
     func testMissingRegistryRecoversProfileMetadata() throws {

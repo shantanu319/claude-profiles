@@ -138,6 +138,7 @@ public final class ProfileRepository {
         try secureDirectory(at: paths.profilesURL)
         try secureDirectory(at: paths.containerURL(for: profile))
         try secureDirectory(at: paths.userDataURL(for: profile))
+        try secureDirectory(at: paths.claudeConfigURL(for: profile))
     }
 
     private func secureDirectory(at url: URL) throws {
