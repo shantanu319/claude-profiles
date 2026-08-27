@@ -61,6 +61,17 @@ final class ProfileRepositoryTests: XCTestCase {
         XCTAssertTrue(entries.isEmpty)
     }
 
+    func testFailedTrashRestoresTheRegistry() throws {
+        let repository = ProfileRepository(paths: paths) { _ in throw TestFailure.expected }
+        let profiles = try repository.create(named: "Work", in: [])
+
+        XCTAssertThrowsError(try repository.delete(profiles[0], from: profiles))
+        XCTAssertEqual(try repository.load().map(\.id), profiles.map(\.id))
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: paths.containerURL(for: profiles[0]).path
+        ))
+    }
+
     private func assertSecureDirectory(_ url: URL) throws {
         var isDirectory: ObjCBool = false
         XCTAssertTrue(FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory))
@@ -69,4 +80,8 @@ final class ProfileRepositoryTests: XCTestCase {
         let permissions = try XCTUnwrap(attributes[.posixPermissions] as? NSNumber)
         XCTAssertEqual(permissions.intValue & 0o777, 0o700)
     }
+}
+
+private enum TestFailure: Error {
+    case expected
 }
