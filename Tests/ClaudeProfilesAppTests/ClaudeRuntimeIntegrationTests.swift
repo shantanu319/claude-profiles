@@ -33,7 +33,7 @@ final class ClaudeRuntimeIntegrationTests: XCTestCase {
 
         let launcher = ClaudeLauncher(locator: locator, repository: repository)
         try await launcher.open(profile, among: [profile])
-        let process = try await waitForProcess(at: paths.appExecutableURL(for: profile).path)
+        var process = try await waitForProcess(at: paths.appExecutableURL(for: profile).path)
         cloneApplication = try XCTUnwrap(NSRunningApplication(processIdentifier: process.pid))
         XCTAssertEqual(
             try canonicalPath(of: XCTUnwrap(cloneApplication?.executableURL)),
@@ -43,6 +43,24 @@ final class ClaudeRuntimeIntegrationTests: XCTestCase {
             try canonicalPath(of: URL(fileURLWithPath: XCTUnwrap(process.userDataPath))),
             try canonicalPath(of: paths.userDataURL(for: profile))
         )
+
+        let receiptURL = paths.containerURL(for: profile).appending(path: ".updater-policy-v1")
+        try FileManager.default.removeItem(at: receiptURL)
+        do {
+            try await launcher.open(profile, among: [profile])
+            XCTFail("A running pre-policy clone must require a restart")
+        } catch ClaudeUpdaterPolicyError.restartRequired {
+        }
+        cloneApplication?.terminate()
+        try await waitForExit(process.pid)
+        cloneApplication = nil
+        try await launcher.open(profile, among: [profile])
+        process = try await waitForProcess(at: paths.appExecutableURL(for: profile).path)
+        cloneApplication = try XCTUnwrap(NSRunningApplication(processIdentifier: process.pid))
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: paths.containerURL(for: profile)
+                .appending(path: ".updater-restart-required").path
+        ))
 
         let verifier = ClaudeSignatureVerifier()
         XCTAssertEqual(
