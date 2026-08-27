@@ -4,12 +4,16 @@ import Foundation
 
 enum ClaudeLauncherError: LocalizedError {
     case couldNotActivate
+    case legacyInstanceRunning
     case substitutedApplication
 
     var errorDescription: String? {
         switch self {
         case .couldNotActivate:
             "Claude is open, but macOS could not bring its window forward."
+        case .legacyInstanceRunning:
+            "This profile is still open through the old shared Claude app. Quit that Claude "
+                + "app with ⌘Q, then open the profile again. Its data will be preserved."
         case .substitutedApplication:
             "macOS opened a different Claude app. Quit every Claude app and try again."
         }
@@ -78,8 +82,17 @@ final class ClaudeLauncher {
         }
     }
 
+    func isLegacy(_ process: ClaudeProcess, for profile: ClaudeProfile) -> Bool {
+        normalized(process.executablePath) != normalized(
+            repository.paths.appExecutableURL(for: profile).path
+        )
+    }
+
     func open(_ profile: ClaudeProfile?, among profiles: [ClaudeProfile]) async throws {
         if let running = process(for: profile, in: try runningProcesses(for: profiles)) {
+            if let profile, isLegacy(running, for: profile) {
+                throw ClaudeLauncherError.legacyInstanceRunning
+            }
             guard let application = NSRunningApplication(processIdentifier: running.pid),
                   application.activate(options: [.activateAllWindows]) else {
                 throw ClaudeLauncherError.couldNotActivate
